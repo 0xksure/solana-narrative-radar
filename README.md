@@ -81,13 +81,16 @@ Signals scoring >40 are passed to the narrative engine for clustering.
 - API: `https://api.llama.fi/protocols`
 
 ### Social Collector
-- Monitors Twitter/X for Solana KOL mentions
-- Tracks trending topics and sentiment
-- Identifies influencer-driven narratives
+- Monitors Twitter/X for Solana KOL mentions (via Nitter RSS + syndication API)
+- Reddit r/solana and r/solanadev community discussion tracking
+- Ecosystem API signals (Solscan, Jupiter, SolanaFM)
+- Multiple fallback sources for reliability
 
-### Coming Soon
-- **Helius**: On-chain transaction pattern analysis
-- **Birdeye**: Token launch and trading volume data
+### On-Chain Collector
+- Solana RPC: TPS, epoch info, supply stats
+- Birdeye: Token trending and volume data
+- Solscan: Top token market cap movements
+- Real on-chain data, no API key required
 
 ---
 
@@ -127,8 +130,19 @@ uvicorn main:app --host 0.0.0.0 --port 8899
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `GET /` | GET | Dashboard UI |
+| `GET /health` | GET | Agent status, last run time |
 | `GET /api/narratives` | GET | Latest narrative report |
+| `GET /api/signals` | GET | Raw scored signals |
+| `GET /api/stats` | GET | Database stats (total signals, runs) |
+| `GET /api/velocity/{topic}` | GET | Signal velocity for a topic |
 | `POST /api/generate` | POST | Trigger new pipeline run |
+
+### Running Tests
+
+```bash
+cd backend
+python -m pytest tests/ -v  # 28 tests
+```
 | `GET /health` | GET | Health check |
 
 ---
