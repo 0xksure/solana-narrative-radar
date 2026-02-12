@@ -15,6 +15,10 @@ def cluster_narratives(scored_signals: List[Dict]) -> Dict:
     if not top_signals:
         return {"narratives": [], "meta": {"signal_count": 0}}
     
+    if not ANTHROPIC_API_KEY:
+        print("⚠️ No Anthropic API key, using rule-based fallback")
+        return _fallback_clustering(top_signals)
+    
     # Format signals for the LLM
     signal_summary = format_signals_for_llm(top_signals)
     
@@ -79,6 +83,12 @@ def generate_ideas(narratives: List[Dict]) -> List[Dict]:
     
     if not narratives:
         return []
+    
+    if not ANTHROPIC_API_KEY:
+        print("⚠️ No Anthropic API key, using fallback ideas")
+        for n in narratives:
+            n["ideas"] = _fallback_ideas(n)
+        return narratives
     
     client = Anthropic(api_key=ANTHROPIC_API_KEY)
     
@@ -173,3 +183,83 @@ def format_signals_for_llm(signals: List[Dict]) -> str:
         output += "SOCIAL SIGNALS (X/Twitter):\n" + "\n".join(sections["twitter"][:15]) + "\n\n"
     
     return output
+
+
+def _fallback_clustering(signals: List[Dict]) -> Dict:
+    """Rule-based narrative clustering when no LLM is available"""
+    from collections import Counter, defaultdict
+    
+    # Group by topic
+    topic_signals = defaultdict(list)
+    for s in signals:
+        for t in s.get("topics", ["other"]):
+            topic_signals[t].append(s)
+    
+    # Sort topics by signal count * average score
+    topic_scores = {}
+    for topic, sigs in topic_signals.items():
+        avg_score = sum(s.get("score", 0) for s in sigs) / len(sigs)
+        topic_scores[topic] = len(sigs) * avg_score
+    
+    sorted_topics = sorted(topic_scores.items(), key=lambda x: x[1], reverse=True)
+    
+    narratives = []
+    for topic, composite_score in sorted_topics[:7]:
+        sigs = topic_signals[topic]
+        top_sigs = sorted(sigs, key=lambda x: x.get("score", 0), reverse=True)[:5]
+        
+        # Determine confidence based on signal count
+        confidence = "HIGH" if len(sigs) > 15 else "MEDIUM" if len(sigs) > 5 else "LOW"
+        
+        narratives.append({
+            "name": topic.replace("_", " ").title(),
+            "confidence": confidence,
+            "direction": "ACCELERATING" if len(sigs) > 10 else "EMERGING",
+            "explanation": f"Detected {len(sigs)} signals related to {topic}. Top signals include: " + 
+                          ", ".join(s.get("name", "unknown")[:40] for s in top_sigs[:3]),
+            "supporting_signals": [s.get("name", "") for s in top_sigs],
+            "topics": [topic],
+            "ideas": []  # Will be filled by generate_ideas if LLM available
+        })
+    
+    return {
+        "narratives": narratives,
+        "meta": {
+            "signal_count": len(signals),
+            "method": "rule-based-fallback"
+        }
+    }
+
+
+def _fallback_ideas(narrative: Dict) -> List[Dict]:
+    """Generate basic ideas without LLM"""
+    topic = narrative.get("topics", ["other"])[0]
+    
+    idea_templates = {
+        "ai_agents": [
+            {"name": "AgentScope", "description": "Real-time monitoring dashboard for AI agent activity on Solana", "complexity": "WEEKS"},
+            {"name": "AgentPay", "description": "Micropayment rails for agent-to-agent transactions", "complexity": "WEEKS"},
+            {"name": "SafeAgent", "description": "Guardrails and spending limits for autonomous Solana agents", "complexity": "DAYS"},
+        ],
+        "defi": [
+            {"name": "YieldRadar", "description": "Cross-protocol yield optimization for Solana DeFi", "complexity": "WEEKS"},
+            {"name": "DeFi Sentinel", "description": "Real-time risk monitoring across Solana lending protocols", "complexity": "WEEKS"},
+            {"name": "PositionPilot", "description": "Automated position management across Jupiter, Kamino, Drift", "complexity": "MONTHS"},
+        ],
+        "trading": [
+            {"name": "AlphaTracker", "description": "Copy-trade smart money wallets with risk controls", "complexity": "WEEKS"},
+            {"name": "SignalBot", "description": "AI-powered trading signals from on-chain patterns", "complexity": "WEEKS"},
+        ],
+        "infrastructure": [
+            {"name": "DevPulse", "description": "Developer activity dashboard for Solana ecosystem", "complexity": "DAYS"},
+            {"name": "RPCBench", "description": "RPC provider comparison and benchmarking tool", "complexity": "DAYS"},
+        ],
+        "memecoins": [
+            {"name": "MemeScout", "description": "Early detection of memecoin narratives before they pump", "complexity": "DAYS"},
+            {"name": "FairLaunchGuard", "description": "Rug-pull detection and safety scoring for new tokens", "complexity": "WEEKS"},
+        ],
+    }
+    
+    return idea_templates.get(topic, [
+        {"name": f"{topic.title()}Builder", "description": f"Tool for the emerging {topic} narrative on Solana", "complexity": "WEEKS"}
+    ])
