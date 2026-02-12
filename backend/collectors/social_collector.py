@@ -50,57 +50,153 @@ async def collect_kol_tweets() -> List[Dict]:
 
 
 async def _collect_via_xbird() -> List[Dict]:
-    """Collect tweets via xbird CLI (only works locally)"""
+    """Collect tweets via xbird CLI (only works locally) or Nitter RSS fallback"""
     signals = []
     
+    # Try xbird CLI first (local dev only)
     try:
-        # Check if xbird is available
         result = subprocess.run(["which", "xbird"], capture_output=True, timeout=5)
-        if result.returncode != 0:
-            return signals
-        
-        # Get home timeline
-        result = subprocess.run(
-            ["xbird", "home", "--count", "50"],
-            capture_output=True, text=True, timeout=30
-        )
         if result.returncode == 0:
-            tweets = _parse_xbird_output(result.stdout)
-            for tweet in tweets:
-                if _is_solana_related(tweet.get("text", "")):
-                    signals.append({
-                        "source": "twitter",
-                        "signal_type": "kol_tweet",
-                        "name": f"@{tweet.get('author', 'unknown')}: {tweet.get('text', '')[:80]}",
-                        "content": tweet.get("text", "")[:500],
-                        "author": tweet.get("author", ""),
-                        "engagement": tweet.get("likes", 0) + tweet.get("retweets", 0),
-                        "topics": _extract_topics(tweet.get("text", "")),
-                        "collected_at": datetime.utcnow().isoformat()
-                    })
-        
-        # Search for trending Solana topics
-        for query in ["solana narrative", "building on solana", "solana alpha"]:
             result = subprocess.run(
-                ["xbird", "search", query, "--count", "20"],
+                ["xbird", "home", "--count", "50"],
                 capture_output=True, text=True, timeout=30
             )
             if result.returncode == 0:
                 tweets = _parse_xbird_output(result.stdout)
                 for tweet in tweets:
-                    signals.append({
-                        "source": "twitter",
-                        "signal_type": "trending_topic",
-                        "name": f"Search '{query}': {tweet.get('text', '')[:60]}",
-                        "query": query,
-                        "content": tweet.get("text", "")[:500],
-                        "topics": _extract_topics(tweet.get("text", "")),
-                        "collected_at": datetime.utcnow().isoformat()
-                    })
+                    if _is_solana_related(tweet.get("text", "")):
+                        signals.append({
+                            "source": "twitter",
+                            "signal_type": "kol_tweet",
+                            "name": f"@{tweet.get('author', 'unknown')}: {tweet.get('text', '')[:80]}",
+                            "content": tweet.get("text", "")[:500],
+                            "author": tweet.get("author", ""),
+                            "engagement": tweet.get("likes", 0) + tweet.get("retweets", 0),
+                            "topics": _extract_topics(tweet.get("text", "")),
+                            "collected_at": datetime.utcnow().isoformat()
+                        })
+            
+            for query in ["solana narrative", "building on solana", "solana alpha"]:
+                result = subprocess.run(
+                    ["xbird", "search", query, "--count", "20"],
+                    capture_output=True, text=True, timeout=30
+                )
+                if result.returncode == 0:
+                    tweets = _parse_xbird_output(result.stdout)
+                    for tweet in tweets:
+                        signals.append({
+                            "source": "twitter",
+                            "signal_type": "trending_topic",
+                            "name": f"Search '{query}': {tweet.get('text', '')[:60]}",
+                            "query": query,
+                            "content": tweet.get("text", "")[:500],
+                            "topics": _extract_topics(tweet.get("text", "")),
+                            "collected_at": datetime.utcnow().isoformat()
+                        })
+            if signals:
+                return signals
     except Exception as e:
         print(f"  ⚠️ xbird collection error: {e}")
     
+    # Fallback: Nitter RSS feeds for KOL monitoring
+    nitter_signals = await _collect_via_nitter()
+    signals.extend(nitter_signals)
+    
+    # Fallback: Syndication API (Twitter's public embed API)
+    syndication_signals = await _collect_via_syndication()
+    signals.extend(syndication_signals)
+    
     return signals
+
+
+async def _collect_via_nitter() -> List[Dict]:
+    """Collect KOL tweets via Nitter RSS instances (no auth needed)"""
+    signals = []
+    nitter_instances = [
+        "https://nitter.privacydev.net",
+        "https://nitter.poast.org",
+        "https://nitter.net",
+    ]
+    
+    async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+        for kol in SOLANA_KOLS[:6]:  # Top 6 KOLs to avoid rate limits
+            for instance in nitter_instances:
+                try:
+                    resp = await client.get(f"{instance}/{kol}/rss")
+                    if resp.status_code == 200 and "<item>" in resp.text:
+                        items = _parse_rss_items(resp.text, kol)
+                        for item in items:
+                            if _is_solana_related(item.get("text", "")):
+                                signals.append({
+                                    "source": "twitter_nitter",
+                                    "signal_type": "kol_tweet",
+                                    "name": f"@{kol}: {item['text'][:80]}",
+                                    "content": item["text"][:500],
+                                    "author": kol,
+                                    "topics": _extract_topics(item["text"]),
+                                    "collected_at": datetime.utcnow().isoformat()
+                                })
+                        break  # Got data from this instance, move to next KOL
+                except Exception:
+                    continue  # Try next instance
+    
+    return signals
+
+
+async def _collect_via_syndication() -> List[Dict]:
+    """Collect tweets via Twitter's public syndication/search API"""
+    signals = []
+    
+    async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+        # Twitter syndication timeline (public, no auth)
+        for kol in SOLANA_KOLS[:4]:
+            try:
+                resp = await client.get(
+                    f"https://syndication.twitter.com/srv/timeline-profile/screen-name/{kol}",
+                    headers={"User-Agent": "Mozilla/5.0 (compatible; NarrativeRadar/1.0)"}
+                )
+                if resp.status_code == 200:
+                    # Extract tweet text from HTML response
+                    tweet_texts = re.findall(r'<p[^>]*class="[^"]*timeline-Tweet-text[^"]*"[^>]*>(.*?)</p>', resp.text, re.S)
+                    for text in tweet_texts[:5]:
+                        clean_text = re.sub(r'<[^>]+>', '', text).strip()
+                        if clean_text and _is_solana_related(clean_text):
+                            signals.append({
+                                "source": "twitter_syndication",
+                                "signal_type": "kol_tweet",
+                                "name": f"@{kol}: {clean_text[:80]}",
+                                "content": clean_text[:500],
+                                "author": kol,
+                                "topics": _extract_topics(clean_text),
+                                "collected_at": datetime.utcnow().isoformat()
+                            })
+            except Exception:
+                pass
+    
+    return signals
+
+
+def _parse_rss_items(rss_xml: str, author: str) -> List[Dict]:
+    """Parse RSS XML into tweet items"""
+    items = []
+    # Simple regex parsing for RSS items
+    item_blocks = re.findall(r'<item>(.*?)</item>', rss_xml, re.S)
+    for block in item_blocks[:10]:
+        title_match = re.search(r'<title><!\[CDATA\[(.*?)\]\]></title>', block, re.S)
+        if not title_match:
+            title_match = re.search(r'<title>(.*?)</title>', block, re.S)
+        desc_match = re.search(r'<description><!\[CDATA\[(.*?)\]\]></description>', block, re.S)
+        
+        text = ""
+        if desc_match:
+            text = re.sub(r'<[^>]+>', '', desc_match.group(1)).strip()
+        elif title_match:
+            text = re.sub(r'<[^>]+>', '', title_match.group(1)).strip()
+        
+        if text:
+            items.append({"text": text, "author": author})
+    
+    return items
 
 
 async def _collect_ecosystem_signals() -> List[Dict]:
