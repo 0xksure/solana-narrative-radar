@@ -150,43 +150,58 @@ Respond in JSON:
 
 def format_signals_for_llm(signals: List[Dict]) -> str:
     """Format signals into a readable summary for the LLM"""
-    sections = {"github": [], "defillama": [], "twitter": [], "other": []}
+    sections = {"github": [], "defillama": [], "social": [], "onchain": [], "other": []}
     
     for s in signals:
         source = s.get("source", "other")
-        if source not in sections:
-            source = "other"
         
         if source == "github":
             sections["github"].append(
                 f"- [{s.get('signal_type')}] {s.get('name')}: {s.get('description', 'N/A')} "
                 f"(⭐{s.get('stars', 0)}, topics: {s.get('topics', [])}, score: {s.get('score', 0)})"
             )
-        elif source == "defillama":
+        elif source in ("defillama", "defillama_yields"):
             sections["defillama"].append(
                 f"- {s.get('name')}: TVL ${s.get('tvl', 0):,.0f}, "
                 f"7d change: {s.get('change_7d', 0):+.1f}%, category: {s.get('category', 'N/A')}"
             )
-        elif source == "twitter":
-            sections["twitter"].append(
-                f"- [{s.get('signal_type')}] {s.get('content', '')[:200]}"
+        elif source in ("twitter", "twitter_nitter", "twitter_syndication", "reddit"):
+            sections["social"].append(
+                f"- [{source}/{s.get('signal_type')}] {s.get('content', s.get('name', ''))[:200]}"
+            )
+        elif source in ("solana_rpc", "birdeye", "solscan", "solanafm"):
+            sections["onchain"].append(
+                f"- [{source}] {s.get('name', '')}: {s.get('content', '')[:150]}"
             )
         else:
-            sections["other"].append(f"- {s}")
+            sections["other"].append(
+                f"- [{source}] {s.get('name', '')[:100]} (score: {s.get('score', 0)})"
+            )
     
     output = ""
     if sections["github"]:
         output += "DEVELOPER ACTIVITY (GitHub):\n" + "\n".join(sections["github"][:20]) + "\n\n"
     if sections["defillama"]:
         output += "DEFI/TVL DATA:\n" + "\n".join(sections["defillama"][:20]) + "\n\n"
-    if sections["twitter"]:
-        output += "SOCIAL SIGNALS (X/Twitter):\n" + "\n".join(sections["twitter"][:15]) + "\n\n"
+    if sections["social"]:
+        output += "SOCIAL SIGNALS (Twitter/Reddit):\n" + "\n".join(sections["social"][:15]) + "\n\n"
+    if sections["onchain"]:
+        output += "ON-CHAIN DATA (Solana):\n" + "\n".join(sections["onchain"][:10]) + "\n\n"
+    if sections["other"]:
+        output += "OTHER SIGNALS:\n" + "\n".join(sections["other"][:10]) + "\n\n"
     
     return output
 
 
 def _fallback_clustering(signals: List[Dict]) -> Dict:
-    """Rule-based narrative clustering when no LLM is available"""
+    """Advanced rule-based narrative clustering when no LLM is available.
+    
+    Uses multi-signal convergence analysis:
+    1. Topic grouping with co-occurrence detection
+    2. Source diversity scoring (narratives across multiple sources = stronger)
+    3. Score-weighted momentum calculation
+    4. Cross-topic narrative merging
+    """
     from collections import Counter, defaultdict
     
     # Group by topic
@@ -195,11 +210,27 @@ def _fallback_clustering(signals: List[Dict]) -> Dict:
         for t in s.get("topics", ["other"]):
             topic_signals[t].append(s)
     
-    # Sort topics by signal count * average score
+    # Detect co-occurring topics (signals that span multiple topics indicate convergence)
+    cooccurrence = Counter()
+    for s in signals:
+        topics = s.get("topics", [])
+        for i, t1 in enumerate(topics):
+            for t2 in topics[i+1:]:
+                pair = tuple(sorted([t1, t2]))
+                cooccurrence[pair] += 1
+    
+    # Calculate source diversity per topic (signals from multiple sources = stronger narrative)
+    topic_source_diversity = {}
+    for topic, sigs in topic_signals.items():
+        sources = set(s.get("source", "unknown") for s in sigs)
+        topic_source_diversity[topic] = len(sources)
+    
+    # Composite scoring: count × avg_score × source_diversity_bonus
     topic_scores = {}
     for topic, sigs in topic_signals.items():
         avg_score = sum(s.get("score", 0) for s in sigs) / len(sigs)
-        topic_scores[topic] = len(sigs) * avg_score
+        diversity_bonus = 1.0 + (topic_source_diversity.get(topic, 1) - 1) * 0.2
+        topic_scores[topic] = len(sigs) * avg_score * diversity_bonus
     
     sorted_topics = sorted(topic_scores.items(), key=lambda x: x[1], reverse=True)
     
@@ -208,25 +239,60 @@ def _fallback_clustering(signals: List[Dict]) -> Dict:
         sigs = topic_signals[topic]
         top_sigs = sorted(sigs, key=lambda x: x.get("score", 0), reverse=True)[:5]
         
-        # Determine confidence based on signal count
-        confidence = "HIGH" if len(sigs) > 15 else "MEDIUM" if len(sigs) > 5 else "LOW"
+        # Source diversity analysis
+        sources = set(s.get("source", "unknown") for s in sigs)
+        source_count = len(sources)
+        
+        # Confidence based on signal count AND source diversity
+        if len(sigs) > 15 and source_count >= 3:
+            confidence = "HIGH"
+        elif len(sigs) > 8 or (len(sigs) > 5 and source_count >= 2):
+            confidence = "MEDIUM"
+        else:
+            confidence = "LOW"
+        
+        # Direction based on score distribution
+        high_score_ratio = len([s for s in sigs if s.get("score", 0) > 60]) / max(len(sigs), 1)
+        if high_score_ratio > 0.3 and len(sigs) > 10:
+            direction = "ACCELERATING"
+        elif high_score_ratio > 0.15 or len(sigs) > 5:
+            direction = "EMERGING"
+        else:
+            direction = "STABILIZING"
+        
+        # Build explanation with source breakdown
+        source_breakdown = Counter(s.get("source", "unknown") for s in sigs)
+        source_desc = ", ".join(f"{count} from {src}" for src, count in source_breakdown.most_common(3))
+        
+        # Find co-occurring topics for richer narrative description
+        related_topics = []
+        for pair, count in cooccurrence.most_common(10):
+            if topic in pair and count >= 2:
+                other = pair[0] if pair[1] == topic else pair[1]
+                related_topics.append(other)
+        
+        explanation = f"Detected {len(sigs)} signals across {source_count} data sources ({source_desc}). "
+        if related_topics:
+            explanation += f"Converges with {', '.join(related_topics[:2])} narratives. "
+        explanation += f"Top signals: " + ", ".join(s.get("name", "unknown")[:50] for s in top_sigs[:3])
         
         narratives.append({
             "name": topic.replace("_", " ").title(),
             "confidence": confidence,
-            "direction": "ACCELERATING" if len(sigs) > 10 else "EMERGING",
-            "explanation": f"Detected {len(sigs)} signals related to {topic}. Top signals include: " + 
-                          ", ".join(s.get("name", "unknown")[:40] for s in top_sigs[:3]),
+            "direction": direction,
+            "explanation": explanation,
             "supporting_signals": [s.get("name", "") for s in top_sigs],
-            "topics": [topic],
-            "ideas": []  # Will be filled by generate_ideas if LLM available
+            "topics": [topic] + related_topics[:2],
+            "source_diversity": source_count,
+            "ideas": []
         })
     
     return {
         "narratives": narratives,
         "meta": {
             "signal_count": len(signals),
-            "method": "rule-based-fallback"
+            "method": "multi-signal-convergence",
+            "co_occurrences_detected": len(cooccurrence)
         }
     }
 
