@@ -88,22 +88,46 @@ def extract_topics(signal: Dict) -> List[str]:
 
 
 def calculate_velocity(signal: Dict) -> float:
-    """Calculate velocity score based on growth metrics"""
+    """Calculate velocity score based on growth metrics and temporal signals"""
     score = 50  # baseline
     
-    # GitHub repos: stars as proxy for velocity
+    # GitHub repos: stars and forks as velocity proxy
     if signal.get("source") == "github":
         stars = signal.get("stars", 0)
+        forks = signal.get("forks", 0)
         if stars > 100: score += 30
         elif stars > 50: score += 20
         elif stars > 10: score += 10
+        # Forks indicate active development interest
+        if forks > 20: score += 15
+        elif forks > 5: score += 8
     
-    # DeFiLlama: TVL change
+    # DeFiLlama: TVL change indicates momentum
     if signal.get("source") == "defillama":
         change_7d = abs(signal.get("change_7d", 0))
         if change_7d > 50: score += 40
         elif change_7d > 20: score += 25
         elif change_7d > 10: score += 15
+    
+    # On-chain: high TPS or large token movements
+    if signal.get("source") in ("solana_rpc", "birdeye", "solscan"):
+        if signal.get("signal_type") == "token_trending":
+            score += 25  # trending tokens = high velocity
+        elif signal.get("signal_type") == "network_activity":
+            score += 10
+    
+    # Social: engagement as velocity signal
+    if signal.get("source") in ("twitter", "twitter_nitter", "twitter_syndication", "reddit"):
+        engagement = signal.get("engagement", 0)
+        if engagement > 100: score += 30
+        elif engagement > 50: score += 20
+        elif engagement > 10: score += 10
+        if signal.get("signal_type") == "kol_tweet":
+            score += 10  # KOL amplification
+    
+    # DeFi yields: high APY changes indicate narrative shift
+    if signal.get("source") == "defillama_yields":
+        score += 15  # yield signals are inherently velocity indicators
     
     return min(score, 100)
 
@@ -131,21 +155,42 @@ def calculate_novelty(signal: Dict) -> float:
 
 
 def calculate_authority(signal: Dict) -> float:
-    """Calculate authority score"""
+    """Calculate authority score based on source credibility"""
     score = 50
     
-    if signal.get("source") == "github":
+    source = signal.get("source", "")
+    
+    if source == "github":
         stars = signal.get("stars", 0)
         if stars > 500: score = 90
         elif stars > 100: score = 70
+        elif stars > 20: score = 60
     
-    if signal.get("source") == "twitter":
+    if source in ("twitter", "twitter_nitter", "twitter_syndication"):
         if signal.get("signal_type") == "kol_tweet":
-            score = 80
+            score = 80  # Known Solana KOLs
+        else:
+            score = 55  # General Twitter search
     
-    if signal.get("source") == "defillama":
+    if source == "reddit":
+        engagement = signal.get("engagement", 0)
+        if engagement > 100: score = 75
+        elif engagement > 30: score = 60
+        if signal.get("signal_type") == "dev_discussion":
+            score += 10  # r/solanadev = higher signal
+    
+    if source == "defillama":
         tvl = signal.get("tvl", 0)
         if tvl > 100_000_000: score = 90
         elif tvl > 10_000_000: score = 70
+    
+    if source == "defillama_yields":
+        score = 70  # Verified protocol data
+    
+    if source in ("solana_rpc", "solscan"):
+        score = 85  # On-chain data = high authority
+    
+    if source == "birdeye":
+        score = 70  # Aggregated market data
     
     return min(score, 100)
