@@ -54,11 +54,11 @@ def score_signals(signals: List[Dict]) -> List[Dict]:
 def extract_topics(signal: Dict) -> List[str]:
     """Extract topic keywords from a signal"""
     text = " ".join([
-        signal.get("name", ""),
-        signal.get("description", ""),
-        signal.get("content", ""),
-        signal.get("category", ""),
-        " ".join(signal.get("topics", [])),
+        signal.get("name", "") or "",
+        signal.get("description", "") or "",
+        signal.get("content", "") or "",
+        signal.get("category", "") or "",
+        " ".join(signal.get("topics", []) or []),
     ]).lower()
     
     topic_keywords = {
