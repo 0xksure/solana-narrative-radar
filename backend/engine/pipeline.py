@@ -1,6 +1,7 @@
-"""Main pipeline: collect → score → cluster → generate ideas"""
+"""Main pipeline: collect → score → cluster → generate ideas → persist"""
 import json
 import os
+import uuid
 from datetime import datetime
 from typing import Dict
 
@@ -10,6 +11,7 @@ from collectors.social_collector import collect_kol_tweets
 from collectors.onchain_collector import collect_onchain_signals
 from engine.scorer import score_signals
 from engine.narrative_engine import cluster_narratives, generate_ideas
+from engine.store import save_run, get_signal_velocity, get_stats
 
 
 async def run_pipeline() -> Dict:
@@ -80,6 +82,13 @@ async def run_pipeline() -> Dict:
         "version": "0.1.0"
     }
     
+    # Enrich narratives with velocity data from history
+    for n in narratives_with_ideas:
+        name_lower = n.get("name", "").lower()
+        velocity = get_signal_velocity(name_lower)
+        if velocity.get("data_points", 0) >= 2:
+            n["velocity"] = velocity
+    
     # Save report
     with open(os.path.join(data_dir, "latest_report.json"), "w") as f:
         json.dump(report, f, indent=2)
@@ -88,6 +97,15 @@ async def run_pipeline() -> Dict:
     hist_file = os.path.join(data_dir, f"report_{datetime.utcnow().strftime('%Y-%m-%d')}.json")
     with open(hist_file, "w") as f:
         json.dump(report, f, indent=2)
+    
+    # Persist to SQLite
+    run_id = str(uuid.uuid4())
+    try:
+        save_run(run_id, scored, narratives_with_ideas, report.get("signal_summary", {}))
+        db_stats = get_stats()
+        print(f"  💾 Persisted to DB (total: {db_stats['total_signals_collected']} signals, {db_stats['total_runs']} runs)")
+    except Exception as e:
+        print(f"  ⚠️ DB persist error: {e}")
     
     print(f"✅ Pipeline complete! Found {len(narratives_with_ideas)} narratives")
     return report
