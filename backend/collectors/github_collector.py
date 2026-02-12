@@ -1,0 +1,85 @@
+"""Collect developer activity signals from GitHub"""
+import httpx
+import os
+from datetime import datetime, timedelta
+from typing import List, Dict
+
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
+HEADERS = {"Authorization": f"token {GITHUB_TOKEN}"} if GITHUB_TOKEN else {}
+
+async def collect_new_solana_repos(days_back: int = 14) -> List[Dict]:
+    """Find new Solana-related repos created in the last N days"""
+    since = (datetime.utcnow() - timedelta(days=days_back)).strftime("%Y-%m-%d")
+    query = f"solana created:>{since} sort:stars"
+    
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            "https://api.github.com/search/repositories",
+            params={"q": query, "sort": "stars", "per_page": 50},
+            headers=HEADERS,
+            timeout=30
+        )
+        if resp.status_code != 200:
+            print(f"GitHub API error: {resp.status_code}")
+            return []
+        
+        data = resp.json()
+        repos = []
+        for item in data.get("items", []):
+            repos.append({
+                "source": "github",
+                "signal_type": "new_repo",
+                "name": item["full_name"],
+                "description": item.get("description", ""),
+                "stars": item["stargazers_count"],
+                "forks": item["forks_count"],
+                "language": item.get("language", ""),
+                "created_at": item["created_at"],
+                "url": item["html_url"],
+                "topics": item.get("topics", []),
+                "collected_at": datetime.utcnow().isoformat()
+            })
+        return repos
+
+async def collect_trending_solana_repos() -> List[Dict]:
+    """Find Solana repos with accelerating star velocity"""
+    queries = [
+        "solana agent", "solana defi", "solana nft", "solana token",
+        "anchor solana", "solana sdk", "solana ai", "solana payments"
+    ]
+    all_repos = []
+    
+    async with httpx.AsyncClient() as client:
+        for query in queries:
+            resp = await client.get(
+                "https://api.github.com/search/repositories",
+                params={"q": query, "sort": "updated", "per_page": 20},
+                headers=HEADERS,
+                timeout=30
+            )
+            if resp.status_code == 200:
+                for item in resp.json().get("items", []):
+                    all_repos.append({
+                        "source": "github",
+                        "signal_type": "trending_repo",
+                        "name": item["full_name"],
+                        "description": item.get("description", ""),
+                        "stars": item["stargazers_count"],
+                        "forks": item["forks_count"],
+                        "language": item.get("language", ""),
+                        "updated_at": item["updated_at"],
+                        "url": item["html_url"],
+                        "topics": item.get("topics", []),
+                        "query_matched": query,
+                        "collected_at": datetime.utcnow().isoformat()
+                    })
+    
+    # Deduplicate by repo name
+    seen = set()
+    unique = []
+    for r in all_repos:
+        if r["name"] not in seen:
+            seen.add(r["name"])
+            unique.append(r)
+    
+    return sorted(unique, key=lambda x: x["stars"], reverse=True)
