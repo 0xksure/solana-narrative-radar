@@ -1,0 +1,21 @@
+name: solana-narrative-radar
+region: fra
+services:
+  - name: api
+    github:
+      repo: 0xksure/solana-narrative-radar
+      branch: master
+      deploy_on_push: true
+    source_dir: backend
+    run_command: uvicorn main:app --host 0.0.0.0 --port 8080
+    environment_slug: python
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    http_port: 8080
+    envs:
+      - key: GITHUB_TOKEN
+        scope: RUN_TIME
+        type: SECRET
+      - key: ANTHROPIC_API_KEY
+        scope: RUN_TIME
+        type: SECRET
