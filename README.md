@@ -1,16 +1,20 @@
 # 📡 Solana Narrative Radar
 
-**AI-powered detection of emerging narratives in the Solana ecosystem.**
+**Autonomous AI agent that detects emerging narratives in the Solana ecosystem.**
 
 Built for the [Superteam Earn — Narrative Detection Tool](https://earn.superteam.fun/listing/narrative-detection-tool/) bounty.
+
+🌐 **Live Demo:** [solana-narrative-radar-8vsib.ondigitalocean.app](https://solana-narrative-radar-8vsib.ondigitalocean.app)
 
 ![Python](https://img.shields.io/badge/python-3.11-blue) ![FastAPI](https://img.shields.io/badge/FastAPI-0.109-green) ![License](https://img.shields.io/badge/license-MIT-purple)
 
 ---
 
-## 🧠 What It Does
+## 🤖 What It Does
 
-Solana Narrative Radar continuously monitors multiple data sources across the Solana ecosystem, scores signals for significance, clusters them into narratives using AI, and generates actionable build ideas for each emerging trend.
+Solana Narrative Radar is an **autonomous AI agent** that continuously monitors multiple data sources across the Solana ecosystem, scores signals for significance, clusters them into narratives, and generates actionable build ideas for each emerging trend.
+
+The agent runs autonomously — it generates an initial report on startup and refreshes every 4 hours without human intervention.
 
 **Example output:**
 > 🔥 **DeFi Renaissance** (HIGH confidence, ACCELERATING)
@@ -23,14 +27,14 @@ Solana Narrative Radar continuously monitors multiple data sources across the So
 ## 🏗️ Architecture
 
 ```
-┌──────────────────────────────────────────────────┐
-│                  DATA COLLECTORS                  │
-├──────────────┬───────────────┬───────────────────┤
-│  🐙 GitHub   │  📈 DeFiLlama │  🐦 Social/KOL   │
-│  New repos   │  TVL changes  │  Twitter trends   │
-│  Star surges │  Protocol     │  Influencer       │
-│  Fork waves  │  launches     │  mentions         │
-├──────────────┴───────────────┴───────────────────┤
+┌──────────────────────────────────────────────────────────────┐
+│                       DATA COLLECTORS                        │
+├──────────────┬──────────────┬──────────────┬────────────────┤
+│  🐙 GitHub   │ 📈 DeFiLlama │ 🐦 Social    │ ⛓️ On-Chain    │
+│  New repos   │ TVL changes  │ Twitter/KOLs │ Solana RPC     │
+│  Star surges │ Protocol     │ Reddit       │ Token trending │
+│  Fork waves  │ launches     │ Nitter RSS   │ Network stats  │
+├──────────────┴──────────────┴──────────────┴────────────────┤
 │              📊 SIGNAL SCORER                     │
 │  Velocity · Convergence · Novelty · Authority    │
 ├──────────────────────────────────────────────────┤
