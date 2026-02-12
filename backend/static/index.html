@@ -171,8 +171,8 @@
     <div id="error-toast" style="display:none" class="error-toast"></div>
     
     <footer>
-        <p>Built by Max 🤖 | Powered by GitHub, DeFiLlama, Reddit & Claude</p>
-        <p style="margin-top:6px"><a href="https://github.com/0xksure/solana-narrative-radar">View on GitHub</a></p>
+        <p>🤖 Autonomous AI Agent | Monitors GitHub, DeFiLlama, Reddit & Twitter</p>
+        <p style="margin-top:6px">Auto-refreshes every 4 hours · <a href="https://github.com/0xksure/solana-narrative-radar">View on GitHub</a></p>
     </footer>
 
     <script>
@@ -239,6 +239,7 @@
                 <div class="meta-item">🐙 GitHub: <span>${s.github_signals || '?'}</span></div>
                 <div class="meta-item">📈 DeFi: <span>${s.defi_signals || '?'}</span></div>
                 <div class="meta-item">🐦 Social: <span>${s.social_signals || '?'}</span></div>
+                <div class="meta-item">⛓️ On-chain: <span>${s.onchain_signals || '?'}</span></div>
                 <div class="meta-item">🔥 High-signal: <span>${s.high_score_signals || '?'}</span></div>
                 <div class="meta-item">📅 ${genDate}</div>
                 <button class="btn" onclick="generateReport()" ${isGenerating ? 'disabled' : ''}>🔄 Refresh</button>

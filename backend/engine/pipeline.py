@@ -7,6 +7,7 @@ from typing import Dict
 from collectors.github_collector import collect_new_solana_repos, collect_trending_solana_repos
 from collectors.defillama_collector import collect_solana_tvl
 from collectors.social_collector import collect_kol_tweets
+from collectors.onchain_collector import collect_onchain_signals
 from engine.scorer import score_signals
 from engine.narrative_engine import cluster_narratives, generate_ideas
 
@@ -23,14 +24,17 @@ async def run_pipeline() -> Dict:
     print("  [2/5] Collecting DeFiLlama signals...")
     defi_signals = await collect_solana_tvl()
     
-    print("  [3/5] Collecting social signals...")
+    print("  [3/6] Collecting social signals...")
     social_signals = await collect_kol_tweets()
     
-    all_signals = github_new + github_trending + defi_signals + social_signals
+    print("  [4/6] Collecting on-chain signals...")
+    onchain_signals = await collect_onchain_signals()
+    
+    all_signals = github_new + github_trending + defi_signals + social_signals + onchain_signals
     print(f"  → Collected {len(all_signals)} raw signals")
     
     # Phase 2: Score signals
-    print("  [4/5] Scoring signals...")
+    print("  [5/6] Scoring signals...")
     scored = score_signals(all_signals)
     
     # Save raw signals
@@ -45,7 +49,7 @@ async def run_pipeline() -> Dict:
         }, f, indent=2)
     
     # Phase 3: Cluster into narratives
-    print("  [5/5] Detecting narratives via LLM...")
+    print("  [6/6] Detecting narratives...")
     narrative_result = cluster_narratives(scored)
     
     # Phase 4: Generate ideas for each narrative
@@ -68,6 +72,7 @@ async def run_pipeline() -> Dict:
             "github_signals": len(github_new) + len(github_trending),
             "defi_signals": len(defi_signals),
             "social_signals": len(social_signals),
+            "onchain_signals": len(onchain_signals),
             "high_score_signals": len([s for s in scored if s.get("score", 0) > 60])
         },
         "narratives": narratives_with_ideas,
