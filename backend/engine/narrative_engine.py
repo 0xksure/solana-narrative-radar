@@ -50,12 +50,16 @@ Respond in JSON format:
       "name": "Narrative Name",
       "confidence": "HIGH|MEDIUM|LOW",
       "direction": "ACCELERATING|EMERGING|STABILIZING",
-      "explanation": "Why this is happening now...",
+      "explanation": "2-3 sentences on WHY this narrative is emerging now and why it matters for builders. Go beyond signal counts — explain the underlying market dynamics, user demand, and technical catalysts driving this trend.",
+      "market_opportunity": "2-3 sentences on the TAM/market size and why this narrative represents a real opportunity for builders and investors.",
+      "references": ["https://relevant-protocol.com", "https://docs.example.com/relevant-page"],
       "supporting_signals": ["signal 1", "signal 2"],
       "topics": ["defi", "ai_agents"]
     }}
   ]
-}}"""
+}}
+
+For "references", include relevant links you know about: protocol websites, documentation pages, notable tweets/articles, or ecosystem resources related to the narrative."""
         }]
     )
     
@@ -108,22 +112,28 @@ DIRECTION: {narrative['direction']}
 
 For each idea:
 1. Product name (catchy, memorable)
-2. One-line description
+2. Description: 2-3 sentences explaining what this product does, the core value proposition, and how it leverages the narrative
 3. Target user (specific, not generic)
 4. Key Solana protocols/tools to integrate
 5. Build complexity: DAYS (weekend hack), WEEKS (MVP), MONTHS (full product)
 6. Why this wins: what makes it compelling
+7. Market analysis: 2-3 sentences on market size, existing competition, and how this product differentiates
+8. Revenue model: how this product makes money (fees, subscriptions, token, etc.)
+9. Reference links: URLs of existing similar products or inspirations
 
 Respond in JSON:
 {{
   "ideas": [
     {{
       "name": "Product Name",
-      "description": "One-line description",
+      "description": "2-3 sentence description of the product, its value proposition, and how it leverages the narrative.",
       "target_user": "Specific user persona",
       "solana_integrations": ["Jupiter", "Helius"],
       "complexity": "DAYS|WEEKS|MONTHS",
-      "why_it_wins": "Compelling reason"
+      "why_it_wins": "Compelling reason",
+      "market_analysis": "2-3 sentences on market size, competition landscape, and differentiation strategy.",
+      "revenue_model": "How this product generates revenue.",
+      "reference_links": ["https://similar-product.com", "https://inspiration.xyz"]
     }}
   ]
 }}"""
@@ -281,6 +291,8 @@ def _fallback_clustering(signals: List[Dict]) -> Dict:
             "confidence": confidence,
             "direction": direction,
             "explanation": explanation,
+            "market_opportunity": f"The {topic.replace('_', ' ')} sector on Solana is growing with {len(sigs)} active signals detected. This represents an emerging opportunity as developer and user activity converges around this narrative.",
+            "references": [],
             "supporting_signals": [s.get("name", "") for s in top_sigs],
             "topics": [topic] + related_topics[:2],
             "source_diversity": source_count,
@@ -301,31 +313,37 @@ def _fallback_ideas(narrative: Dict) -> List[Dict]:
     """Generate basic ideas without LLM"""
     topic = narrative.get("topics", ["other"])[0]
     
+    _default_extra = {
+        "market_analysis": "Market size and competition analysis not available in fallback mode. Run with LLM for detailed analysis.",
+        "revenue_model": "Revenue model analysis not available in fallback mode.",
+        "reference_links": [],
+    }
+
     idea_templates = {
         "ai_agents": [
-            {"name": "AgentScope", "description": "Real-time monitoring dashboard for AI agent activity on Solana", "complexity": "WEEKS"},
-            {"name": "AgentPay", "description": "Micropayment rails for agent-to-agent transactions", "complexity": "WEEKS"},
-            {"name": "SafeAgent", "description": "Guardrails and spending limits for autonomous Solana agents", "complexity": "DAYS"},
+            {"name": "AgentScope", "description": "Real-time monitoring dashboard for AI agent activity on Solana. Track agent transactions, spending patterns, and performance metrics across protocols. Essential tooling as autonomous agents become key DeFi participants.", "complexity": "WEEKS", **_default_extra},
+            {"name": "AgentPay", "description": "Micropayment rails for agent-to-agent transactions on Solana. Enables seamless value transfer between autonomous agents with built-in escrow and verification. Leverages Solana's low fees for high-frequency micro-transfers.", "complexity": "WEEKS", **_default_extra},
+            {"name": "SafeAgent", "description": "Guardrails and spending limits for autonomous Solana agents. Set transaction caps, whitelist protocols, and monitor agent behavior in real-time. Critical safety infrastructure as AI agents manage increasing capital.", "complexity": "DAYS", **_default_extra},
         ],
         "defi": [
-            {"name": "YieldRadar", "description": "Cross-protocol yield optimization for Solana DeFi", "complexity": "WEEKS"},
-            {"name": "DeFi Sentinel", "description": "Real-time risk monitoring across Solana lending protocols", "complexity": "WEEKS"},
-            {"name": "PositionPilot", "description": "Automated position management across Jupiter, Kamino, Drift", "complexity": "MONTHS"},
+            {"name": "YieldRadar", "description": "Cross-protocol yield optimization for Solana DeFi. Automatically discovers and ranks the best yield opportunities across lending, LP, and staking protocols. Provides risk-adjusted recommendations tailored to portfolio size.", "complexity": "WEEKS", **_default_extra},
+            {"name": "DeFi Sentinel", "description": "Real-time risk monitoring across Solana lending protocols. Alerts users to liquidation risks, utilization spikes, and oracle anomalies before they impact positions. Essential risk management for serious DeFi users.", "complexity": "WEEKS", **_default_extra},
+            {"name": "PositionPilot", "description": "Automated position management across Jupiter, Kamino, Drift. Rebalances, compounds, and hedges positions based on configurable strategies. Set-and-forget DeFi management for power users.", "complexity": "MONTHS", **_default_extra},
         ],
         "trading": [
-            {"name": "AlphaTracker", "description": "Copy-trade smart money wallets with risk controls", "complexity": "WEEKS"},
-            {"name": "SignalBot", "description": "AI-powered trading signals from on-chain patterns", "complexity": "WEEKS"},
+            {"name": "AlphaTracker", "description": "Copy-trade smart money wallets with risk controls on Solana. Identifies profitable wallets, mirrors their trades with customizable position sizing, and includes automatic stop-losses. Democratizes alpha access for retail traders.", "complexity": "WEEKS", **_default_extra},
+            {"name": "SignalBot", "description": "AI-powered trading signals from on-chain patterns on Solana. Analyzes token flows, whale movements, and DEX activity to generate actionable trade alerts. Integrates with Jupiter for one-click execution.", "complexity": "WEEKS", **_default_extra},
         ],
         "infrastructure": [
-            {"name": "DevPulse", "description": "Developer activity dashboard for Solana ecosystem", "complexity": "DAYS"},
-            {"name": "RPCBench", "description": "RPC provider comparison and benchmarking tool", "complexity": "DAYS"},
+            {"name": "DevPulse", "description": "Developer activity dashboard for Solana ecosystem. Tracks GitHub commits, new programs deployed, and SDK adoption across the ecosystem. Helps investors and builders identify where developer momentum is concentrating.", "complexity": "DAYS", **_default_extra},
+            {"name": "RPCBench", "description": "RPC provider comparison and benchmarking tool for Solana. Continuously tests latency, reliability, and feature support across providers. Helps developers pick the best infrastructure for their use case.", "complexity": "DAYS", **_default_extra},
         ],
         "memecoins": [
-            {"name": "MemeScout", "description": "Early detection of memecoin narratives before they pump", "complexity": "DAYS"},
-            {"name": "FairLaunchGuard", "description": "Rug-pull detection and safety scoring for new tokens", "complexity": "WEEKS"},
+            {"name": "MemeScout", "description": "Early detection of memecoin narratives before they pump on Solana. Monitors social signals, token creation patterns, and early whale accumulation. Provides risk scores and narrative strength indicators.", "complexity": "DAYS", **_default_extra},
+            {"name": "FairLaunchGuard", "description": "Rug-pull detection and safety scoring for new Solana tokens. Analyzes contract code, liquidity locks, team wallets, and social signals to rate token safety. Protects retail users from common scam patterns.", "complexity": "WEEKS", **_default_extra},
         ],
     }
     
     return idea_templates.get(topic, [
-        {"name": f"{topic.title()}Builder", "description": f"Tool for the emerging {topic} narrative on Solana", "complexity": "WEEKS"}
+        {"name": f"{topic.title()}Builder", "description": f"Tool for the emerging {topic} narrative on Solana. Addresses a growing need in the ecosystem as this narrative gains momentum. Build early to capture first-mover advantage.", "complexity": "WEEKS", **_default_extra}
     ])
