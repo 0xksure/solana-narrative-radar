@@ -1,7 +1,10 @@
 """LLM-powered narrative detection and idea generation"""
 import os
 import json
-from typing import List, Dict
+import math
+import re
+from collections import Counter, defaultdict
+from typing import List, Dict, Tuple
 from anthropic import Anthropic
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
@@ -9,6 +12,115 @@ if ANTHROPIC_API_KEY:
     print(f"✅ Anthropic API key loaded ({len(ANTHROPIC_API_KEY)} chars)")
 else:
     print("⚠️ ANTHROPIC_API_KEY env var not set or empty")
+
+def _tokenize(text: str) -> List[str]:
+    """Simple tokenizer: lowercase, split on non-alphanum, remove short tokens."""
+    return [t for t in re.split(r'[^a-z0-9]+', text.lower()) if len(t) > 2]
+
+
+def _signal_text(s: Dict) -> str:
+    """Extract searchable text from a signal."""
+    parts = [s.get("name", ""), s.get("content", ""), s.get("description", "")]
+    parts.extend(s.get("topics", []))
+    return " ".join(str(p) for p in parts if p)
+
+
+def _compute_tfidf(docs: List[List[str]]) -> Tuple[List[Dict[str, float]], Dict[str, float]]:
+    """Pure-python TF-IDF. Returns per-doc TF-IDF vectors and IDF dict."""
+    # Stop words for crypto/solana context
+    stop = {"the", "and", "for", "with", "that", "this", "from", "are", "was", "has",
+            "have", "been", "will", "not", "but", "they", "their", "its", "all", "can",
+            "more", "other", "than", "into", "also", "some", "which", "about", "would",
+            "there", "what", "when", "how", "each", "she", "her", "his", "him", "our",
+            "solana", "sol", "protocol", "token", "https", "com", "www", "http"}
+
+    N = len(docs)
+    if N == 0:
+        return [], {}
+
+    df: Counter = Counter()
+    for doc in docs:
+        unique = set(doc) - stop
+        for w in unique:
+            df[w] += 1
+
+    idf = {w: math.log(N / c) for w, c in df.items() if c < N}  # skip words in ALL docs
+
+    vectors: List[Dict[str, float]] = []
+    for doc in docs:
+        tf: Counter = Counter(w for w in doc if w not in stop)
+        total = sum(tf.values()) or 1
+        vec = {}
+        for w, c in tf.items():
+            if w in idf:
+                vec[w] = (c / total) * idf[w]
+        vectors.append(vec)
+
+    return vectors, idf
+
+
+def _cosine_sim(a: Dict[str, float], b: Dict[str, float]) -> float:
+    """Cosine similarity between two sparse vectors."""
+    if not a or not b:
+        return 0.0
+    common = set(a) & set(b)
+    if not common:
+        return 0.0
+    dot = sum(a[k] * b[k] for k in common)
+    mag_a = math.sqrt(sum(v * v for v in a.values()))
+    mag_b = math.sqrt(sum(v * v for v in b.values()))
+    if mag_a == 0 or mag_b == 0:
+        return 0.0
+    return dot / (mag_a * mag_b)
+
+
+def pre_cluster_signals(signals: List[Dict], similarity_threshold: float = 0.15) -> List[List[Dict]]:
+    """Pre-cluster signals using TF-IDF cosine similarity.
+    
+    Groups similar signals together so the LLM receives better-organized input.
+    Uses single-linkage clustering with a cosine similarity threshold.
+    """
+    if len(signals) <= 3:
+        return [signals] if signals else []
+
+    # Tokenize and compute TF-IDF
+    docs = [_tokenize(_signal_text(s)) for s in signals]
+    vectors, _ = _compute_tfidf(docs)
+
+    # Union-Find for clustering
+    parent = list(range(len(signals)))
+
+    def find(x: int) -> int:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(x: int, y: int):
+        px, py = find(x), find(y)
+        if px != py:
+            parent[px] = py
+
+    # Compute pairwise similarities and merge above threshold
+    for i in range(len(signals)):
+        for j in range(i + 1, len(signals)):
+            if _cosine_sim(vectors[i], vectors[j]) >= similarity_threshold:
+                union(i, j)
+
+    # Group by cluster
+    clusters: Dict[int, List[Dict]] = defaultdict(list)
+    for i, s in enumerate(signals):
+        clusters[find(i)].append(s)
+
+    # Sort clusters by max signal score (best clusters first)
+    sorted_clusters = sorted(
+        clusters.values(),
+        key=lambda c: max(s.get("score", 0) for s in c),
+        reverse=True,
+    )
+
+    return sorted_clusters
+
 
 def cluster_narratives(scored_signals: List[Dict]) -> Dict:
     """Use Claude to cluster signals into narratives"""
@@ -23,8 +135,11 @@ def cluster_narratives(scored_signals: List[Dict]) -> Dict:
         print("⚠️ No Anthropic API key, using rule-based fallback")
         return _fallback_clustering(top_signals)
     
-    # Format signals for the LLM
-    signal_summary = format_signals_for_llm(top_signals)
+    # Pre-cluster signals for better LLM input
+    clusters = pre_cluster_signals(top_signals)
+    
+    # Format signals for the LLM, organized by pre-clusters
+    signal_summary = format_signals_for_llm(top_signals, clusters=clusters)
     
     client = Anthropic(api_key=ANTHROPIC_API_KEY)
     
@@ -181,8 +296,21 @@ Respond in JSON:
     return enriched
 
 
-def format_signals_for_llm(signals: List[Dict]) -> str:
-    """Format signals into a readable summary for the LLM"""
+def format_signals_for_llm(signals: List[Dict], clusters: List[List[Dict]] = None) -> str:
+    """Format signals into a readable summary for the LLM.
+    
+    If clusters are provided, adds a pre-clustering summary section to help
+    the LLM identify signal groupings.
+    """
+    cluster_summary = ""
+    if clusters and len(clusters) > 1:
+        cluster_summary = "PRE-CLUSTERED SIGNAL GROUPS (signals grouped by textual similarity):\n"
+        for i, cluster in enumerate(clusters[:15], 1):
+            names = [s.get("name", "?")[:60] for s in cluster[:5]]
+            sources = set(s.get("source", "?") for s in cluster)
+            cluster_summary += f"  Group {i} ({len(cluster)} signals, sources: {', '.join(sources)}): {'; '.join(names)}\n"
+        cluster_summary += "\nNote: These groups suggest potential narrative clusters. Use them as hints, not strict boundaries.\n\n"
+    
     sections = {"github": [], "defillama": [], "social": [], "onchain": [], "other": []}
     
     for s in signals:
@@ -258,7 +386,7 @@ def format_signals_for_llm(signals: List[Dict]) -> str:
                 f"- [{source}] {s.get('name', '')[:100]} (score: {s.get('score', 0)}){url_suffix}"
             )
     
-    output = ""
+    output = cluster_summary
     if sections["github"]:
         output += "DEVELOPER ACTIVITY (GitHub):\n" + "\n".join(sections["github"][:20]) + "\n\n"
     if sections["defillama"]:
