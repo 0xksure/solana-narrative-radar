@@ -721,6 +721,7 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                 <p class="detail-explanation">${esc(n.explanation || '')}</p>
                 ${n.trend_evidence ? `<div class="market-opportunity" style="border-left-color:var(--accent)"><div class="label">📊 Why ${n.direction || 'This Trend'}?</div><div class="content" style="white-space:pre-line">${esc(n.trend_evidence)}</div></div>` : ''}
                 ${n.market_opportunity ? `<div class="market-opportunity"><div class="label">💎 Market Opportunity</div><div class="content">${esc(n.market_opportunity)}</div></div>` : ''}
+                ${renderDetailConfidenceChart(n)}
                 ${hasDC || hasSC ? `<div class="charts-row">
                     <div class="trend-chart-wrap"${!hasDC ? ' style="display:none"' : ''}><canvas id="detail-trend"></canvas><div class="chart-label">Signal Trend (7d)</div></div>
                     <div class="donut-chart-wrap"${!hasSC ? ' style="display:none"' : ''}><canvas id="detail-donut" width="128" height="128"></canvas><div class="chart-label">Sources</div></div>
@@ -758,6 +759,7 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
             requestAnimationFrame(() => {
                 if (hasDC) createTrendChart('detail-trend', n.velocity.daily_counts, trend);
                 if (hasSC) createDonutChart('detail-donut', sourceCounts);
+                createDetailConfidenceChart(n);
                 createTVLMiniCharts();
                 createNarrativeTrendCharts(signals);
             });
@@ -1263,6 +1265,7 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                     renderKPIs(data);
                     renderSidebar(data.narratives);
                     renderOverviewGrid(data.narratives);
+                    requestAnimationFrame(createCardSparklines);
                     handleRoute();
                 } else {
                     document.getElementById('narrative-grid').innerHTML = '<div style="text-align:center;padding:48px;color:var(--text-muted)"><p>No narratives detected yet.</p><br><button class="btn" onclick="generateReport()">Generate Report</button></div>';
@@ -1287,6 +1290,7 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                 renderKPIs(data);
                 renderSidebar(currentNarratives);
                 renderOverviewGrid(currentNarratives);
+                requestAnimationFrame(createCardSparklines);
                 handleRoute();
             } catch(e) {
                 if (typeof Sentry !== 'undefined') Sentry.captureException(e);
