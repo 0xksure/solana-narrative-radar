@@ -26,6 +26,7 @@ async def collect_solana_tvl() -> List[Dict]:
             change_7d = p.get("change_7d", 0) or 0
             
             if tvl > 1_000_000:  # Only track protocols with >$1M TVL
+                slug = p.get("slug", p.get("name", "").lower().replace(" ", "-"))
                 signals.append({
                     "source": "defillama",
                     "signal_type": "tvl_data",
@@ -35,7 +36,7 @@ async def collect_solana_tvl() -> List[Dict]:
                     "change_1d": change_1d,
                     "change_7d": change_7d,
                     "chains": p.get("chains", []),
-                    "url": p.get("url", ""),
+                    "url": f"https://defillama.com/protocol/{slug}",
                     "collected_at": datetime.utcnow().isoformat()
                 })
         

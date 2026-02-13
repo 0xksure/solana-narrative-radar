@@ -53,7 +53,7 @@ Respond in JSON format:
       "explanation": "2-3 sentences on WHY this narrative is emerging now and why it matters for builders. Go beyond signal counts — explain the underlying market dynamics, user demand, and technical catalysts driving this trend.",
       "market_opportunity": "2-3 sentences on the TAM/market size and why this narrative represents a real opportunity for builders and investors.",
       "references": ["https://relevant-protocol.com", "https://docs.example.com/relevant-page"],
-      "supporting_signals": ["signal 1", "signal 2"],
+      "supporting_signals": [{"text": "signal description", "url": "https://...", "source": "twitter|github|defillama|reddit"}],
       "topics": ["defi", "ai_agents"]
     }}
   ]
@@ -165,27 +165,29 @@ def format_signals_for_llm(signals: List[Dict]) -> str:
     for s in signals:
         source = s.get("source", "other")
         
+        url_suffix = f" | URL: {s.get('url')}" if s.get("url") else ""
+        
         if source == "github":
             sections["github"].append(
                 f"- [{s.get('signal_type')}] {s.get('name')}: {s.get('description', 'N/A')} "
-                f"(⭐{s.get('stars', 0)}, topics: {s.get('topics', [])}, score: {s.get('score', 0)})"
+                f"(⭐{s.get('stars', 0)}, topics: {s.get('topics', [])}, score: {s.get('score', 0)}){url_suffix}"
             )
         elif source in ("defillama", "defillama_yields"):
             sections["defillama"].append(
                 f"- {s.get('name')}: TVL ${s.get('tvl', 0):,.0f}, "
-                f"7d change: {s.get('change_7d', 0):+.1f}%, category: {s.get('category', 'N/A')}"
+                f"7d change: {s.get('change_7d', 0):+.1f}%, category: {s.get('category', 'N/A')}{url_suffix}"
             )
         elif source in ("twitter", "twitter_nitter", "twitter_syndication", "reddit"):
             sections["social"].append(
-                f"- [{source}/{s.get('signal_type')}] {s.get('content', s.get('name', ''))[:200]}"
+                f"- [{source}/{s.get('signal_type')}] {s.get('content', s.get('name', ''))[:200]}{url_suffix}"
             )
         elif source in ("solana_rpc", "birdeye", "solscan", "solanafm"):
             sections["onchain"].append(
-                f"- [{source}] {s.get('name', '')}: {s.get('content', '')[:150]}"
+                f"- [{source}] {s.get('name', '')}: {s.get('content', '')[:150]}{url_suffix}"
             )
         else:
             sections["other"].append(
-                f"- [{source}] {s.get('name', '')[:100]} (score: {s.get('score', 0)})"
+                f"- [{source}] {s.get('name', '')[:100]} (score: {s.get('score', 0)}){url_suffix}"
             )
     
     output = ""
@@ -293,7 +295,10 @@ def _fallback_clustering(signals: List[Dict]) -> Dict:
             "explanation": explanation,
             "market_opportunity": f"The {topic.replace('_', ' ')} sector on Solana is growing with {len(sigs)} active signals detected. This represents an emerging opportunity as developer and user activity converges around this narrative.",
             "references": [],
-            "supporting_signals": [s.get("name", "") for s in top_sigs],
+            "supporting_signals": [
+                {"text": s.get("name", ""), "url": s.get("url", ""), "source": s.get("source", "")}
+                for s in top_sigs
+            ],
             "topics": [topic] + related_topics[:2],
             "source_diversity": source_count,
             "ideas": []

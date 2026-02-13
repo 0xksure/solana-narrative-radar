@@ -30,6 +30,24 @@ SOLANA_KEYWORDS = [
 
 async def collect_kol_tweets() -> List[Dict]:
     """Collect social signals using multiple methods with fallbacks"""
+    # Check for pre-collected social cache first
+    cache_path = os.path.join(os.path.dirname(__file__), "..", "data", "social_cache.json")
+    if os.path.exists(cache_path):
+        try:
+            with open(cache_path) as f:
+                cache = json.load(f)
+            cache_ts = datetime.fromisoformat(cache.get("collected_at", "2000-01-01"))
+            age_hours = (datetime.utcnow() - cache_ts).total_seconds() / 3600
+            if age_hours < 6:
+                cached_signals = cache.get("signals", [])
+                print(f"  → Social: using {len(cached_signals)} cached signals ({age_hours:.1f}h old)")
+                # Still collect non-twitter signals live
+                ecosystem_signals = await _collect_ecosystem_signals()
+                reddit_signals = await _collect_reddit_signals()
+                return cached_signals + ecosystem_signals + reddit_signals
+        except Exception as e:
+            print(f"  ⚠️ Cache load error: {e}")
+    
     signals = []
     
     # Method 1: xbird CLI (local only)
@@ -282,6 +300,7 @@ async def _collect_ecosystem_signals() -> List[Dict]:
                             "apy": pool.get("apy"),
                             "tvl": pool.get("tvlUsd"),
                         }),
+                        "url": f"https://defillama.com/yields/pool/{pool.get('pool', '')}",
                         "topics": ["defi", "staking"] if "stake" in pool.get("symbol", "").lower() else ["defi"],
                         "collected_at": datetime.utcnow().isoformat()
                     })
@@ -313,6 +332,7 @@ async def _collect_reddit_signals() -> List[Dict]:
                             "signal_type": "community_discussion",
                             "name": f"r/solana: {title[:80]}",
                             "content": f"{title} | Score: {score} | Comments: {num_comments} | {p.get('selftext', '')[:200]}",
+                            "url": f"https://reddit.com{p.get('permalink', '')}",
                             "engagement": score + num_comments,
                             "topics": _extract_topics(title),
                             "collected_at": datetime.utcnow().isoformat()
@@ -333,6 +353,7 @@ async def _collect_reddit_signals() -> List[Dict]:
                         "signal_type": "dev_discussion",
                         "name": f"r/solanadev: {title[:80]}",
                         "content": f"{title} | {p.get('selftext', '')[:200]}",
+                        "url": f"https://reddit.com{p.get('permalink', '')}",
                         "topics": _extract_topics(title),
                         "collected_at": datetime.utcnow().isoformat()
                     })
