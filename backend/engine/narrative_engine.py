@@ -4,7 +4,11 @@ import json
 from typing import List, Dict
 from anthropic import Anthropic
 
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
+if ANTHROPIC_API_KEY:
+    print(f"✅ Anthropic API key loaded ({len(ANTHROPIC_API_KEY)} chars)")
+else:
+    print("⚠️ ANTHROPIC_API_KEY env var not set or empty")
 
 def cluster_narratives(scored_signals: List[Dict]) -> Dict:
     """Use Claude to cluster signals into narratives"""
