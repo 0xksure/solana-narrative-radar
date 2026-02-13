@@ -75,7 +75,7 @@ def _cosine_sim(a: Dict[str, float], b: Dict[str, float]) -> float:
     return dot / (mag_a * mag_b)
 
 
-def pre_cluster_signals(signals: List[Dict], similarity_threshold: float = 0.15) -> List[List[Dict]]:
+def pre_cluster_signals(signals: List[Dict], similarity_threshold: float = 0.25) -> List[List[Dict]]:
     """Pre-cluster signals using TF-IDF cosine similarity.
     
     Groups similar signals together so the LLM receives better-organized input.
@@ -128,7 +128,7 @@ def cluster_narratives(scored_signals: List[Dict], previous_narrative_hints: Lis
     
     # Ensure source diversity: take top signals per source category
     # so GitHub/DeFiLlama don't drown out social/onchain signals
-    scored_above_threshold = [s for s in scored_signals if s.get("score", 0) > 5]
+    scored_above_threshold = [s for s in scored_signals if s.get("score", 0) > 3]
     scored_above_threshold.sort(key=lambda x: x.get("score", 0), reverse=True)
     
     top_per_source = {}
@@ -144,7 +144,7 @@ def cluster_narratives(scored_signals: List[Dict], previous_narrative_hints: Lis
     for signals in top_per_source.values():
         top_signals.extend(signals)
     top_signals.sort(key=lambda x: x.get("score", 0), reverse=True)
-    top_signals = top_signals[:100]
+    top_signals = top_signals[:120]
     
     if not top_signals:
         return {"narratives": [], "meta": {"signal_count": 0}}
@@ -189,7 +189,7 @@ For each narrative you detect:
    - EMERGING: cite first appearances (e.g., "first protocol launched 2 weeks ago", "new category on DeFiLlama")
    - STABILIZING: cite plateau data (e.g., "TVL steady at $X for 30d", "GitHub activity flat")
 
-Identify 8-10 narratives. Include a MIX of confidence levels: 2-3 HIGH, 3-4 MEDIUM, and 2-3 LOW confidence narratives. CRITICAL RULES:
+Identify 10-12 narratives. Cast a WIDE net — it's better to surface more narratives than to miss emerging ones. Include a MIX of confidence levels: 2-3 HIGH, 3-4 MEDIUM, and 3-5 LOW confidence narratives. Even weak or early signals deserve a narrative if they represent something genuinely new. CRITICAL RULES:
 - Each narrative MUST include signals from at least 2 different source types (github, twitter, defillama, onchain)
 - Prioritize narratives where Twitter engagement + DeFi data + GitHub activity converge
 - Include specific numbers in explanations (TVL amounts, % changes, star counts, like counts)

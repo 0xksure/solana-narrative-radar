@@ -129,8 +129,9 @@
         .sidebar-trend.emerging { color: var(--warning); }
         .sidebar-trend.stabilizing { color: var(--text-muted); }
 
-        .status-badge { font-size: 0.6rem; font-weight: 700; padding: 1px 5px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.3px; }
-        .status-badge.new { background: rgba(153,69,255,0.2); color: #c4b5fd; }
+        .status-badge { font-size: 0.625rem; font-weight: 700; padding: 2px 7px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.4px; }
+        .status-badge.new { background: rgba(153,69,255,0.25); color: #c4b5fd; box-shadow: 0 0 8px rgba(153,69,255,0.3); animation: glowPulse 2s ease-in-out infinite; }
+        @keyframes glowPulse { 0%,100% { box-shadow: 0 0 6px rgba(153,69,255,0.2); } 50% { box-shadow: 0 0 12px rgba(153,69,255,0.5); } }
         .status-badge.rising { background: var(--success-dim); color: var(--success); }
         .status-badge.stable { background: rgba(136,136,160,0.12); color: var(--text-secondary); }
         .status-badge.declining { background: rgba(248,113,113,0.12); color: var(--danger); }
@@ -412,6 +413,7 @@
             .sidebar {
                 position: fixed; left: 0; top: var(--topnav-height); bottom: 0;
                 z-index: 150; transform: translateX(-100%);
+                width: 85vw; max-width: 320px;
             }
             .sidebar.open { transform: translateX(0); }
             .nav-links .nav-link { display: none; }
@@ -422,6 +424,11 @@
             .narrative-grid { grid-template-columns: 1fr; }
             .charts-row { grid-template-columns: 1fr; }
             .donut-chart-wrap { width: 160px; margin: 0 auto; }
+            .sidebar-item { padding: 12px 14px; }
+            .detail-back { padding: 10px 14px; font-size: 0.875rem; }
+            .detail-title { font-size: 1.4rem; }
+            .key-metrics-row { gap: 8px; }
+            .key-metric-card { min-width: 110px; padding: 8px 10px; }
         }
         @media (max-width: 480px) {
             .nav-badge { display: none; }
@@ -454,46 +461,7 @@
 </head>
 <body>
     <div id="loading-overlay-init"><div class="spinner-ring"></div><div style="color:var(--text-muted);font-size:0.85rem">Loading narratives…</div></div>
-    <!-- Persona Picker -->
-    <div id="persona-picker" style="position:fixed;inset:0;z-index:9999;background:var(--bg-primary);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:32px;">
-        <div style="text-align:center">
-            <div style="font-size:3rem;margin-bottom:12px">📡</div>
-            <h1 style="font-size:1.75rem;font-weight:700;color:var(--text-primary);margin:0">Solana Narrative Radar</h1>
-            <p style="color:var(--text-secondary);margin-top:8px;font-size:0.95rem">Real-time narrative detection & build ideas for the Solana ecosystem</p>
-        </div>
-        <div style="display:flex;gap:20px;flex-wrap:wrap;justify-content:center;">
-            <button onclick="pickPersona('human')" style="background:var(--bg-surface);border:2px solid var(--border);border-radius:16px;padding:32px 40px;cursor:pointer;transition:all 0.2s;display:flex;flex-direction:column;align-items:center;gap:12px;min-width:200px;" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='translateY(-4px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='none'">
-                <span style="font-size:2.5rem">🧑</span>
-                <span style="font-size:1.1rem;font-weight:600;color:var(--text-primary)">I'm a Human</span>
-                <span style="font-size:0.8rem;color:var(--text-muted);max-width:180px">Browse narratives, explore trends, find build ideas</span>
-            </button>
-            <button onclick="pickPersona('agent')" style="background:var(--bg-surface);border:2px solid var(--border);border-radius:16px;padding:32px 40px;cursor:pointer;transition:all 0.2s;display:flex;flex-direction:column;align-items:center;gap:12px;min-width:200px;" onmouseover="this.style.borderColor='var(--success)';this.style.transform='translateY(-4px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='none'">
-                <span style="font-size:2.5rem">🤖</span>
-                <span style="font-size:1.1rem;font-weight:600;color:var(--text-primary)">I'm an AI Agent</span>
-                <span style="font-size:0.8rem;color:var(--text-muted);max-width:180px">API docs, structured endpoints, machine-readable data</span>
-            </button>
-        </div>
-        <p style="color:var(--text-muted);font-size:0.75rem;margin-top:8px">Powered by 600+ signals from GitHub, Twitter, DeFiLlama & on-chain data</p>
-    </div>
-    <script>
-    function pickPersona(type) {
-        document.getElementById('persona-picker').style.display = 'none';
-        localStorage.setItem('radar_persona', type);
-        if (type === 'agent') {
-            setTimeout(() => navigate('agents'), 100);
-        }
-    }
-    // Skip picker if already chosen
-    if (localStorage.getItem('radar_persona')) {
-        document.addEventListener('DOMContentLoaded', () => {
-            const el = document.getElementById('persona-picker');
-            if (el) el.style.display = 'none';
-            if (localStorage.getItem('radar_persona') === 'agent') {
-                setTimeout(() => navigate('agents'), 200);
-            }
-        });
-    }
-    </script>
+    <!-- Persona picker removed — go straight to content -->
 
     <nav class="top-nav">
         <div class="nav-left">
@@ -524,8 +492,9 @@
         <main class="main-content" id="main-content">
             <div class="overview" id="overview-view">
                 <div class="overview-hero">
-                    <h1>Narrative Radar</h1>
-                    <p>AI-powered detection of emerging Solana narratives · <a href="https://github.com/0xksure/solana-narrative-radar#readme">How it works →</a></p>
+                    <h1>📡 Narrative Radar</h1>
+                    <p style="font-size:1.05rem;color:var(--text-secondary);margin-bottom:6px">Discover what's emerging on Solana before everyone else — AI scans 600+ signals from GitHub, Twitter, DeFiLlama & on-chain data every 2 hours.</p>
+                    <p style="font-size:0.85rem"><a href="https://github.com/0xksure/solana-narrative-radar#readme">How it works →</a> · <a href="#agents" style="color:var(--success);text-decoration:none">🤖 Agent API →</a></p>
                 </div>
                 <div class="kpi-grid" id="kpi-grid">
                     <div class="kpi-card"><div class="kpi-label">Total Signals</div><div class="kpi-value" id="kpi-total"><span class="skeleton kpi-skeleton"></span></div><div class="kpi-change" id="kpi-total-change"></div></div>
@@ -1267,6 +1236,7 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                     renderOverviewGrid(data.narratives);
                     requestAnimationFrame(createCardSparklines);
                     handleRoute();
+                    autoSelectFirst();
                 } else {
                     document.getElementById('narrative-grid').innerHTML = '<div style="text-align:center;padding:48px;color:var(--text-muted)"><p>No narratives detected yet.</p><br><button class="btn" onclick="generateReport()">Generate Report</button></div>';
                     dismissLoadingOverlay();
@@ -1320,6 +1290,12 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
         trackEvent('page_view', { screen_width: screen.width });
 
         loadReport();
+        // Auto-navigate to first narrative if no hash set
+        function autoSelectFirst() {
+            if (!window.location.hash && currentNarratives.length > 0) {
+                navigate('narrative-0');
+            }
+        }
     </script>
 </body>
 </html>

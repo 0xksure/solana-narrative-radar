@@ -252,6 +252,40 @@ def get_active_narrative_hints(store: Dict) -> List[str]:
     return hints
 
 
+def _compute_trending_status(entry: Dict) -> str:
+    """Compute a user-facing trending status: NEW, RISING, STABLE, DECLINING, FADED."""
+    status = entry.get("status", "ACTIVE")
+    if status == "FADED":
+        return "FADED"
+
+    # NEW: first detected less than 24h ago
+    first = entry.get("first_detected", "")
+    if first:
+        try:
+            first_dt = datetime.fromisoformat(first)
+            if datetime.now(timezone.utc) - first_dt < timedelta(hours=24):
+                return "NEW"
+        except (ValueError, TypeError):
+            pass
+
+    # RISING/DECLINING: compare recent confidence history
+    hist = entry.get("confidence_history", [])
+    conf_order = {"HIGH": 3, "MEDIUM": 2, "LOW": 1}
+    if len(hist) >= 2:
+        recent = conf_order.get(hist[-1].get("confidence", ""), 1)
+        prev = conf_order.get(hist[-2].get("confidence", ""), 1)
+        if recent > prev:
+            return "RISING"
+        if recent < prev:
+            return "DECLINING"
+
+    # Detection count growing fast = RISING
+    if entry.get("detection_count", 0) >= 3:
+        return "STABLE"
+
+    return "RISING" if entry.get("detection_count", 0) <= 1 else "STABLE"
+
+
 def store_entry_to_api(entry: Dict) -> Dict:
     """Convert a store entry to the API/report format expected by the frontend."""
     return {
@@ -265,7 +299,7 @@ def store_entry_to_api(entry: Dict) -> Dict:
         "supporting_signals": entry.get("all_signals", []),
         "ideas": entry.get("ideas", []),
         "references": entry.get("references", []),
-        "status": entry.get("status", "ACTIVE"),
+        "status": _compute_trending_status(entry),
         "first_detected": entry.get("first_detected", ""),
         "last_detected": entry.get("last_detected", ""),
         "detection_count": entry.get("detection_count", 0),
