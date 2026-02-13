@@ -129,6 +129,13 @@
         .sidebar-trend.emerging { color: var(--warning); }
         .sidebar-trend.stabilizing { color: var(--text-muted); }
 
+        .status-badge { font-size: 0.6rem; font-weight: 700; padding: 1px 5px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.3px; }
+        .status-badge.new { background: rgba(153,69,255,0.2); color: #c4b5fd; }
+        .status-badge.rising { background: var(--success-dim); color: var(--success); }
+        .status-badge.stable { background: rgba(136,136,160,0.12); color: var(--text-secondary); }
+        .status-badge.declining { background: rgba(248,113,113,0.12); color: var(--danger); }
+        .status-badge.faded { background: rgba(92,92,116,0.12); color: var(--text-muted); opacity: 0.7; }
+
         .sidebar-home {
             display: flex; align-items: center; gap: 8px;
             padding: 10px 12px; margin: 0 8px 4px; border-radius: var(--radius-sm);
@@ -586,6 +593,7 @@
                 <div class="detail-header">
                     <div class="detail-title">${esc(n.name)}</div>
                     <div class="detail-badges">
+                        ${n.status ? `<span class="status-badge ${(n.status||'').toLowerCase()}">${n.status}</span>` : ''}
                         <span class="badge badge-${conf}">${n.confidence}</span>
                         <span class="badge badge-${dir}">${n.direction || ''}</span>
                         ${renderNarrativeTVLSummary(signals)}
@@ -598,6 +606,7 @@
                     <div class="trend-chart-wrap"${!hasDC ? ' style="display:none"' : ''}><canvas id="detail-trend"></canvas><div class="chart-label">Signal Trend (7d)</div></div>
                     <div class="donut-chart-wrap"${!hasSC ? ' style="display:none"' : ''}><canvas id="detail-donut" width="128" height="128"></canvas><div class="chart-label">Sources</div></div>
                 </div>` : ''}
+                ${renderNarrativeTrendCharts(n, signals)}
                 ${renderSignalBreakdown(signals)}
                 ${signals.length ? `<div class="detail-section">
                     <div class="detail-section-title">Supporting Signals (${signals.length})</div>
@@ -631,6 +640,7 @@
                 if (hasDC) createTrendChart('detail-trend', n.velocity.daily_counts, trend);
                 if (hasSC) createDonutChart('detail-donut', sourceCounts);
                 createTVLMiniCharts();
+                createNarrativeTrendCharts(signals);
             });
         }
 
@@ -646,10 +656,13 @@
             list.innerHTML = narratives.map((n, i) => {
                 const conf = (n.confidence || 'low').toLowerCase();
                 const trend = ((n.velocity && n.velocity.trend) || n.direction || 'emerging').toLowerCase();
+                const status = (n.status || '').toLowerCase();
+                const statusHtml = status ? `<span class="status-badge ${status}">${status}</span>` : '';
                 return `<div class="sidebar-item" onclick="navigate('narrative-${i}')">
                     <div class="sidebar-item-info">
                         <div class="sidebar-item-name" title="${esc(n.name)}">${esc(n.name)}</div>
                         <div class="sidebar-item-meta">
+                            ${statusHtml}
                             <span class="sidebar-badge ${conf}">${conf}</span>
                             <span class="sidebar-trend ${trend}">${TREND_ARROWS[trend] || '→'} ${trend}</span>
                         </div>
@@ -674,6 +687,7 @@
                     <div class="grid-card-header">
                         <div class="grid-card-name">${esc(n.name)}</div>
                         <div class="grid-card-badges">
+                            ${n.status ? `<span class="status-badge ${(n.status||'').toLowerCase()}">${n.status}</span>` : ''}
                             <span class="badge badge-${conf}" style="font-size:0.65rem;padding:2px 8px">${n.confidence}</span>
                         </div>
                     </div>
@@ -921,6 +935,68 @@
                     options: { responsive: false, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false, callbacks: { label: c => formatTVL(c.parsed.y) } } }, scales: { x: { display: false }, y: { display: false } } }
                 });
             });
+        }
+
+        // === NARRATIVE TREND CHARTS ===
+        function renderNarrativeTrendCharts(n, signals) {
+            const hasTVL = signals.some(s => s.tvl_history && s.tvl_history.length >= 2);
+            const hasSocial = signals.some(s => (s.source === 'twitter' || s.source === 'reddit') && (s.likes || s.retweets));
+            if (!hasTVL && !hasSocial) return '';
+            let html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:20px">';
+            if (hasTVL) html += '<div class="trend-chart-wrap"><canvas id="narrative-tvl-trend"></canvas><div class="chart-label">TVL Trend (30d)</div></div>';
+            if (hasSocial) html += '<div class="trend-chart-wrap"><canvas id="narrative-social-trend"></canvas><div class="chart-label">Social Engagement</div></div>';
+            html += '</div>';
+            return html;
+        }
+
+        function createNarrativeTrendCharts(signals) {
+            if (typeof Chart === 'undefined') return;
+            // TVL trend: aggregate tvl_history from all defillama signals
+            const tvlCanvas = document.getElementById('narrative-tvl-trend');
+            if (tvlCanvas) {
+                const tvlSignals = signals.filter(s => s.tvl_history && s.tvl_history.length >= 2);
+                if (tvlSignals.length) {
+                    const dateMap = {};
+                    tvlSignals.forEach(s => {
+                        s.tvl_history.forEach(h => {
+                            const d = (h.date || '').slice(0, 10);
+                            if (d) dateMap[d] = (dateMap[d] || 0) + (h.tvl || 0);
+                        });
+                    });
+                    const dates = Object.keys(dateMap).sort();
+                    const vals = dates.map(d => dateMap[d]);
+                    const up = vals.length >= 2 && vals[vals.length-1] >= vals[0];
+                    const lineColor = up ? '#00d18c' : '#f87171';
+                    const ctx = tvlCanvas.getContext('2d');
+                    const grad = ctx.createLinearGradient(0, 0, 0, 200);
+                    grad.addColorStop(0, up ? 'rgba(0,209,140,0.15)' : 'rgba(248,113,113,0.15)');
+                    grad.addColorStop(1, 'rgba(0,0,0,0)');
+                    chartInstances['narrative-tvl-trend'] = new Chart(ctx, {
+                        type: 'line',
+                        data: { labels: dates.map(d => d.slice(5)), datasets: [{ data: vals, borderColor: lineColor, backgroundColor: grad, fill: true, tension: 0.35, pointRadius: 2, borderWidth: 2 }] },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => formatTVL(c.parsed.y) } } }, scales: { x: { grid: { color: '#1e1e30' }, ticks: { color: '#5c5c74', font: { size: 10 }, maxTicksLimit: 8 } }, y: { grid: { color: '#1e1e30' }, ticks: { color: '#5c5c74', font: { size: 10 }, callback: v => formatTVL(v) } } } }
+                    });
+                }
+            }
+            // Social engagement chart
+            const socialCanvas = document.getElementById('narrative-social-trend');
+            if (socialCanvas) {
+                const socialSignals = signals.filter(s => (s.source === 'twitter' || s.source === 'reddit') && (s.likes || s.retweets));
+                if (socialSignals.length) {
+                    const labels = socialSignals.slice(0, 15).map((s, i) => (s.author || `#${i+1}`).slice(0, 12));
+                    const likes = socialSignals.slice(0, 15).map(s => s.likes || 0);
+                    const rts = socialSignals.slice(0, 15).map(s => s.retweets || 0);
+                    const ctx = socialCanvas.getContext('2d');
+                    chartInstances['narrative-social-trend'] = new Chart(ctx, {
+                        type: 'bar',
+                        data: { labels, datasets: [
+                            { label: 'Likes', data: likes, backgroundColor: 'rgba(29,155,240,0.6)', borderRadius: 3 },
+                            { label: 'Retweets', data: rts, backgroundColor: 'rgba(0,209,140,0.6)', borderRadius: 3 }
+                        ] },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#8888a0', font: { size: 10 } } } }, scales: { x: { grid: { display: false }, ticks: { color: '#5c5c74', font: { size: 9 }, maxRotation: 45 } }, y: { grid: { color: '#1e1e30' }, ticks: { color: '#5c5c74', font: { size: 10 } }, beginAtZero: true } } }
+                    });
+                }
+            }
         }
 
         // === ERRORS ===
