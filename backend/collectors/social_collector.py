@@ -90,7 +90,11 @@ async def _collect_via_xbird() -> List[Dict]:
                         "content": tweet.get("text", "")[:500],
                         "author": tweet.get("author", ""),
                         "url": tweet.get("url", ""),
+                        "likes": tweet.get("likes", 0),
+                        "retweets": tweet.get("retweets", 0),
+                        "replies": tweet.get("replies", 0),
                         "engagement": tweet.get("likes", 0) + tweet.get("retweets", 0),
+                        "engagement_score": tweet.get("engagement_score", 0),
                         "topics": _extract_topics(tweet.get("text", "")),
                         "collected_at": datetime.utcnow().isoformat()
                     })
@@ -121,10 +125,16 @@ async def _collect_via_xbird() -> List[Dict]:
                     signals.append({
                         "source": "twitter",
                         "signal_type": "trending_topic",
-                        "name": f"Search '{query}': {tweet.get('text', '')[:60]}",
+                        "name": f"@{tweet.get('author', 'unknown')}: {tweet.get('text', '')[:60]}",
                         "query": query,
                         "content": tweet.get("text", "")[:500],
+                        "author": tweet.get("author", ""),
                         "url": tweet.get("url", ""),
+                        "likes": tweet.get("likes", 0),
+                        "retweets": tweet.get("retweets", 0),
+                        "replies": tweet.get("replies", 0),
+                        "engagement": tweet.get("likes", 0) + tweet.get("retweets", 0),
+                        "engagement_score": tweet.get("engagement_score", 0),
                         "topics": _extract_topics(tweet.get("text", "")),
                         "collected_at": datetime.utcnow().isoformat()
                     })

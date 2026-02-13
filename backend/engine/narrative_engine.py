@@ -173,25 +173,27 @@ SIGNALS:
 
 For each narrative you detect:
 1. Give it a clear, concise name
-2. Confidence level: HIGH, MEDIUM, or LOW
-3. A 2-3 sentence explanation of why this narrative is emerging NOW
-4. List the supporting signals (reference specific data points)
-5. Trend direction: ACCELERATING, EMERGING, or STABILIZING
+2. Confidence level: HIGH (3+ sources confirm), MEDIUM (2 sources), or LOW (single source)
+3. A 2-4 sentence explanation written for a non-technical audience
+4. List 3-8 supporting signals from MULTIPLE source types (GitHub + Twitter + DeFiLlama + On-chain). Cross-source narratives are stronger.
+5. Trend direction with DATA-BACKED justification:
+   - ACCELERATING: cite specific growth numbers (e.g., "TVL up 25% in 7d", "3 new repos this week", "tweet got 500 likes")
+   - EMERGING: cite first appearances (e.g., "first protocol launched 2 weeks ago", "new category on DeFiLlama")
+   - STABILIZING: cite plateau data (e.g., "TVL steady at $X for 30d", "GitHub activity flat")
 
-Identify 3-7 narratives. Prioritize NOVELTY and SIGNAL QUALITY over volume. Only include narratives with real supporting evidence.
+Identify 4-8 narratives. CRITICAL RULES:
+- Each narrative MUST include signals from at least 2 different source types (github, twitter, defillama, onchain)
+- Prioritize narratives where Twitter engagement + DeFi data + GitHub activity converge
+- Include specific numbers in explanations (TVL amounts, % changes, star counts, like counts)
+- The "explanation" should tell a STORY: what's happening, who's building it, why now, and what the numbers say
 
-For each supporting signal's "comment" field, explain the SIGNIFICANCE — why this data point matters for the narrative. Examples:
-- GitHub repo with rapid star growth → "Rapid star growth indicates strong developer interest in this approach"
-- KOL tweet with high engagement → "High engagement from ecosystem leader suggests mainstream awareness"
-- TVL spike → "Capital flowing in validates real user demand, not just hype"
-- Active Reddit discussion → "Active community debate signals this narrative has legs beyond speculation"
+For each supporting signal, the "comment" explains WHY this specific data point matters:
+- "Marinade TVL up 18% to $1.2B in 30d — capital is flowing into liquid staking"
+- "@aeyakovenko tweeted about this with 2.3K likes — founder attention signals priority"
+- "solana-agent-kit gained 200 stars this week — developers are actively building here"
+- "Jupiter daily volume hit $500M — real usage, not just speculation"
 
-IMPORTANT: The "explanation" should be written for a non-technical audience. Do NOT say "Detected X signals across Y sources" — that's internal metadata. Instead, explain:
-- What is happening in plain English
-- Which specific projects/protocols are driving this trend
-- What growth numbers support it (TVL changes, star counts, engagement)
-- Why a builder or investor should care
-Example: "DeFi on Solana is heating up as protocols like DefiTuna and Kamino see TVL growth of 15-30% month-over-month. Developer activity is accelerating with 12 new repos this week focused on DEX integrations and yield optimization."
+DO NOT write generic explanations like "Detected X signals across Y sources." Instead write like a crypto analyst briefing an investor.
 
 Respond in JSON format:
 {{
@@ -203,7 +205,8 @@ Respond in JSON format:
       "explanation": "2-3 sentences written for a non-technical audience explaining this narrative.",
       "market_opportunity": "2-3 sentences on the TAM/market size and why this narrative represents a real opportunity for builders and investors.",
       "references": ["https://relevant-protocol.com", "https://docs.example.com/relevant-page"],
-      "supporting_signals": [{{"text": "signal description", "url": "https://...", "source": "twitter|github|defillama|reddit|onchain", "comment": "1-2 sentence explanation of why this signal matters for the narrative and what it indicates about the trend"}}],
+      "trend_evidence": "2-3 bullet points with SPECIFIC DATA proving why this trend is ACCELERATING/EMERGING/STABILIZING. Example: '• TVL grew from $800M to $1.2B in 30 days (+50%)\\n• 5 new GitHub repos this week vs 1 last month\\n• @aeyakovenko tweet got 2.3K likes (3x his average)'",
+      "supporting_signals": [{{"text": "signal description", "url": "https://...", "source": "twitter|github|defillama|reddit|onchain", "comment": "1-2 sentence explanation of why this signal matters"}}],
       "topics": ["defi", "ai_agents"]
     }}
   ]

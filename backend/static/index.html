@@ -665,6 +665,7 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                 </div>
                 ${renderVelocity(n)}
                 <p class="detail-explanation">${esc(n.explanation || '')}</p>
+                ${n.trend_evidence ? `<div class="market-opportunity" style="border-left-color:var(--accent)"><div class="label">📊 Why ${n.direction || 'This Trend'}?</div><div class="content" style="white-space:pre-line">${esc(n.trend_evidence)}</div></div>` : ''}
                 ${n.market_opportunity ? `<div class="market-opportunity"><div class="label">💎 Market Opportunity</div><div class="content">${esc(n.market_opportunity)}</div></div>` : ''}
                 ${hasDC || hasSC ? `<div class="charts-row">
                     <div class="trend-chart-wrap"${!hasDC ? ' style="display:none"' : ''}><canvas id="detail-trend"></canvas><div class="chart-label">Signal Trend (7d)</div></div>
