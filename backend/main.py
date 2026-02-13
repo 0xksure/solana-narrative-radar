@@ -170,6 +170,9 @@ async def ai_plugin():
 # Serve static frontend
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 if os.path.exists(static_dir):
+    img_dir = os.path.join(static_dir, "img")
+    if os.path.exists(img_dir):
+        app.mount("/img", StaticFiles(directory=img_dir), name="img")
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 
