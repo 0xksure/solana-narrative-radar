@@ -9,6 +9,7 @@ from collectors.github_collector import collect_new_solana_repos, collect_trendi
 from collectors.defillama_collector import collect_solana_tvl
 from collectors.social_collector import collect_kol_tweets
 from collectors.onchain_collector import collect_onchain_signals
+from collectors.birdeye_collector import collect_birdeye_trending
 from engine.scorer import score_signals
 from engine.narrative_engine import cluster_narratives, generate_ideas
 from engine.store import save_run, get_signal_velocity, get_stats
@@ -29,14 +30,17 @@ async def run_pipeline() -> Dict:
     print("  [3/6] Collecting social signals...")
     social_signals = await collect_kol_tweets()
     
-    print("  [4/6] Collecting on-chain signals...")
+    print("  [4/7] Collecting on-chain signals...")
     onchain_signals = await collect_onchain_signals()
     
-    all_signals = github_new + github_trending + defi_signals + social_signals + onchain_signals
+    print("  [5/7] Collecting Birdeye trending tokens...")
+    birdeye_signals = await collect_birdeye_trending()
+    
+    all_signals = github_new + github_trending + defi_signals + social_signals + onchain_signals + birdeye_signals
     print(f"  → Collected {len(all_signals)} raw signals")
     
     # Phase 2: Score signals
-    print("  [5/6] Scoring signals...")
+    print("  [6/7] Scoring signals...")
     scored = score_signals(all_signals)
     
     # Save raw signals
@@ -51,7 +55,7 @@ async def run_pipeline() -> Dict:
         }, f, indent=2)
     
     # Phase 3: Cluster into narratives
-    print("  [6/6] Detecting narratives...")
+    print("  [7/7] Detecting narratives...")
     narrative_result = cluster_narratives(scored)
     
     # Phase 4: Generate ideas for each narrative
@@ -75,6 +79,7 @@ async def run_pipeline() -> Dict:
             "defi_signals": len(defi_signals),
             "social_signals": len(social_signals),
             "onchain_signals": len(onchain_signals),
+            "birdeye_signals": len(birdeye_signals),
             "high_score_signals": len([s for s in scored if s.get("score", 0) > 60])
         },
         "narratives": narratives_with_ideas,
