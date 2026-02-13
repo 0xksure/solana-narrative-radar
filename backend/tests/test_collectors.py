@@ -112,12 +112,19 @@ class TestDefillamaCollector:
 
         async def mock_get(url, **kwargs):
             resp = MagicMock()
-            if "protocols" in url:
+            if "/protocols" in url and "/protocol/" not in url:
                 resp.status_code = 200
                 resp.json.return_value = mock_protocols
-            elif "v2/chains" in url:
+            elif "/v2/chains" in url:
                 resp.status_code = 200
                 resp.json.return_value = mock_chains
+            elif "/protocol/" in url:
+                # Historical protocol data
+                resp.status_code = 200
+                resp.json.return_value = {"tvl": [], "description": "Test protocol", "logo": "https://logo.png"}
+            elif "historicalChainTvl" in url:
+                resp.status_code = 200
+                resp.json.return_value = []
             else:
                 resp.status_code = 404
             return resp

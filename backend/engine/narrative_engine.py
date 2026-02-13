@@ -49,6 +49,13 @@ For each supporting signal's "comment" field, explain the SIGNIFICANCE — why t
 - TVL spike → "Capital flowing in validates real user demand, not just hype"
 - Active Reddit discussion → "Active community debate signals this narrative has legs beyond speculation"
 
+IMPORTANT: The "explanation" should be written for a non-technical audience. Do NOT say "Detected X signals across Y sources" — that's internal metadata. Instead, explain:
+- What is happening in plain English
+- Which specific projects/protocols are driving this trend
+- What growth numbers support it (TVL changes, star counts, engagement)
+- Why a builder or investor should care
+Example: "DeFi on Solana is heating up as protocols like DefiTuna and Kamino see TVL growth of 15-30% month-over-month. Developer activity is accelerating with 12 new repos this week focused on DEX integrations and yield optimization."
+
 Respond in JSON format:
 {{
   "narratives": [
@@ -56,7 +63,7 @@ Respond in JSON format:
       "name": "Narrative Name",
       "confidence": "HIGH|MEDIUM|LOW",
       "direction": "ACCELERATING|EMERGING|STABILIZING",
-      "explanation": "2-3 sentences on WHY this narrative is emerging now and why it matters for builders. Go beyond signal counts — explain the underlying market dynamics, user demand, and technical catalysts driving this trend.",
+      "explanation": "2-3 sentences written for a non-technical audience explaining this narrative.",
       "market_opportunity": "2-3 sentences on the TAM/market size and why this narrative represents a real opportunity for builders and investors.",
       "references": ["https://relevant-protocol.com", "https://docs.example.com/relevant-page"],
       "supporting_signals": [{"text": "signal description", "url": "https://...", "source": "twitter|github|defillama|reddit|onchain", "comment": "1-2 sentence explanation of why this signal matters for the narrative and what it indicates about the trend"}],
@@ -118,11 +125,11 @@ DIRECTION: {narrative['direction']}
 
 For each idea:
 1. Product name (catchy, memorable)
-2. Description: 2-3 sentences explaining what this product does, the core value proposition, and how it leverages the narrative
+2. Description: 2-3 sentences explaining what this product does, the core value proposition, and how it leverages the narrative. The description must explain WHY this is a good idea based on current trends. Reference specific data like TVL growth, repo counts, engagement numbers. Example: "With Solana DeFi TVL up 25% this month and 3 new DEXs launching, a cross-protocol yield optimizer would capture growing demand from users overwhelmed by choices." NOT generic descriptions like "Cross-protocol yield optimization for Solana DeFi."
 3. Target user (specific, not generic)
 4. Key Solana protocols/tools to integrate
 5. Build complexity: DAYS (weekend hack), WEEKS (MVP), MONTHS (full product)
-6. Why this wins: what makes it compelling
+6. Why this wins: reference the specific trend data that makes this timely. Cite numbers from the narrative data.
 7. Market analysis: 2-3 sentences on market size, existing competition, and how this product differentiates
 8. Revenue model: how this product makes money (fees, subscriptions, token, etc.)
 9. Reference links: URLs of existing similar products or inspirations
@@ -180,36 +187,43 @@ def format_signals_for_llm(signals: List[Dict]) -> str:
         url_suffix = f" | URL: {s.get('url')}" if s.get("url") else ""
         
         if source == "github":
-            forks = s.get('forks', 0)
-            created = s.get('created_at', '')
-            lang = s.get('language', '')
-            extra = []
-            if forks:
-                extra.append(f"forks: {forks}")
-            if created:
-                extra.append(f"created: {created[:10]}")
-            if lang:
-                extra.append(f"lang: {lang}")
-            extra_str = f", {', '.join(extra)}" if extra else ""
+            parts = [f"⭐{s.get('stars', 0)}"]
+            if s.get('forks', 0):
+                parts.append(f"forks: {s['forks']}")
+            if s.get('language'):
+                parts.append(f"lang: {s['language']}")
+            if s.get('owner_name'):
+                parts.append(f"by: {s['owner_name']}")
+            if s.get('created_at'):
+                parts.append(f"created: {s['created_at'][:10]}")
+            if s.get('pushed_at'):
+                parts.append(f"last push: {s['pushed_at'][:10]}")
+            if s.get('open_issues', 0):
+                parts.append(f"issues: {s['open_issues']}")
+            if s.get('watchers', 0):
+                parts.append(f"watchers: {s['watchers']}")
+            desc = s.get('description', 'N/A')
             sections["github"].append(
-                f"- [{s.get('signal_type')}] {s.get('name')}: {s.get('description', 'N/A')} "
-                f"(⭐{s.get('stars', 0)}{extra_str}, topics: {s.get('topics', [])}, score: {s.get('score', 0)}){url_suffix}"
+                f"- [{s.get('signal_type')}] {s.get('name')}: {desc} "
+                f"({', '.join(parts)}, topics: {s.get('topics', [])}){url_suffix}"
             )
         elif source in ("defillama", "defillama_yields"):
-            change_1d = s.get('change_1d', 0)
-            change_30d = s.get('change_30d', 0)
-            apy = s.get('apy', 0)
-            extra = []
-            if change_1d:
-                extra.append(f"1d: {change_1d:+.1f}%")
-            if change_30d:
-                extra.append(f"30d: {change_30d:+.1f}%")
-            if apy:
-                extra.append(f"APY: {apy:.1f}%")
-            extra_str = f", {', '.join(extra)}" if extra else ""
+            parts = [f"TVL ${s.get('tvl', 0):,.0f}"]
+            if s.get('change_1d_pct'):
+                parts.append(f"1d: {s['change_1d_pct']:+.1f}%")
+            elif s.get('change_1d'):
+                parts.append(f"1d: {s['change_1d']:+.1f}%")
+            parts.append(f"7d: {s.get('change_7d_pct', s.get('change_7d', 0)):+.1f}%")
+            if s.get('change_30d_pct'):
+                parts.append(f"30d: {s['change_30d_pct']:+.1f}%")
+            elif s.get('change_30d'):
+                parts.append(f"30d: {s['change_30d']:+.1f}%")
+            if s.get('apy'):
+                parts.append(f"APY: {s['apy']:.1f}%")
+            desc = s.get('description', '')
+            desc_str = f" — {desc[:120]}" if desc else ""
             sections["defillama"].append(
-                f"- {s.get('name')}: TVL ${s.get('tvl', 0):,.0f}, "
-                f"7d change: {s.get('change_7d', 0):+.1f}%{extra_str}, category: {s.get('category', 'N/A')}{url_suffix}"
+                f"- {s.get('name')}: {', '.join(parts)}, category: {s.get('category', 'N/A')}{desc_str}{url_suffix}"
             )
         elif source in ("twitter", "twitter_nitter", "twitter_syndication", "reddit"):
             engagement = []

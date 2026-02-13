@@ -394,6 +394,45 @@
         footer a:hover { color: var(--accent-hover); text-decoration: underline; }
         .footer-links { margin-top: 10px; display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; }
 
+        /* === TVL Mini Charts === */
+        .tvl-mini-chart-wrap {
+            display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin-left: 8px;
+        }
+        .tvl-mini-chart-wrap canvas { border-radius: 4px; }
+        .tvl-summary { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; white-space: nowrap; }
+        .tvl-summary.up { color: var(--success); }
+        .tvl-summary.down { color: var(--danger); }
+
+        /* === Signal Metadata Row === */
+        .signal-meta-row {
+            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+            margin-top: 4px; padding-left: 2px; font-size: 0.75rem; color: var(--text-muted);
+        }
+        .signal-meta-row .meta-badge {
+            display: inline-flex; align-items: center; gap: 3px;
+            background: var(--bg-primary); border: 1px solid var(--border);
+            border-radius: 12px; padding: 2px 8px; font-size: 0.7rem; white-space: nowrap;
+        }
+        .signal-meta-row .meta-badge.active { border-color: var(--success); color: var(--success); }
+        .signal-meta-row .meta-badge.kol { border-color: #1d9bf0; color: #1d9bf0; }
+
+        /* === Narrative TVL Summary === */
+        .narrative-tvl-summary {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: var(--accent-dim); border-radius: 20px;
+            padding: 4px 12px; font-size: 0.75rem; font-weight: 600; color: var(--accent);
+        }
+        .narrative-tvl-summary.up { background: var(--success-dim); color: var(--success); }
+        .narrative-tvl-summary.down { background: rgba(248,113,113,0.12); color: var(--danger); }
+
+        /* === Idea Trend Callout === */
+        .idea-why-now {
+            border-left: 3px solid var(--success); background: var(--success-dim);
+            padding: 8px 12px; border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+            margin-top: 8px; font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.6;
+        }
+        .idea-why-now .prefix { color: var(--success); font-weight: 600; }
+
         /* === MOBILE === */
         @media (max-width: 768px) {
             .top-nav { padding: 0 16px; }
@@ -700,12 +739,69 @@
         const SOURCE_ICONS = { github: '🐙', twitter: '🐦', defi: '📊', 'on-chain': '⛓️', onchain: '⛓️', reddit: '💬', defillama: '📊' };
         const SOURCE_COLORS = { github: '#00d18c', twitter: '#1d9bf0', defillama: '#9945FF', defi: '#9945FF', reddit: '#ff4500', 'on-chain': '#14F195', onchain: '#14F195' };
 
-        function renderSignal(s) {
+        const KNOWN_KOLS = ['solana','aaboronin','rajgokal','armaboreh','0xmert_','taborvuk','cburniske','lightcrypto','deaborfi_nader','solblaze_org','jupiterexchange','marginfi','heaborlius'];
+
+        function formatTVL(val) {
+            if (val >= 1e9) return '$' + (val / 1e9).toFixed(1) + 'B';
+            if (val >= 1e6) return '$' + (val / 1e6).toFixed(1) + 'M';
+            if (val >= 1e3) return '$' + (val / 1e3).toFixed(1) + 'K';
+            return '$' + val.toFixed(0);
+        }
+
+        function renderSignalMetaRow(s, idx) {
+            const parts = [];
+            // GitHub badges
+            if (s.stars != null || s.forks != null) {
+                let gh = [];
+                if (s.stars != null) gh.push(`⭐ ${s.stars}`);
+                if (s.forks != null) gh.push(`🍴 ${s.forks}`);
+                if (s.created_at) {
+                    const days = Math.floor((Date.now() - new Date(s.created_at).getTime()) / 86400000);
+                    gh.push(`📅 Created ${days < 7 ? days + 'd ago' : days < 30 ? Math.floor(days/7) + 'w ago' : Math.floor(days/30) + 'mo ago'}`);
+                }
+                parts.push(gh.join(' · '));
+                if (s.owner_name) parts.push(`by ${s.owner_name}`);
+                if (s.pushed_at && (Date.now() - new Date(s.pushed_at).getTime()) < 7 * 86400000) {
+                    parts.push('<span class="meta-badge active">🟢 Active</span>');
+                }
+            }
+            // Twitter engagement
+            if (s.likes != null || s.retweets != null || s.replies != null) {
+                let tw = [];
+                if (s.likes != null) tw.push(`❤️ ${s.likes}`);
+                if (s.retweets != null) tw.push(`🔄 ${s.retweets}`);
+                if (s.replies != null) tw.push(`💬 ${s.replies}`);
+                parts.push(tw.join(' · '));
+                if (s.author && KNOWN_KOLS.some(k => s.author.toLowerCase().includes(k))) {
+                    parts.push('<span class="meta-badge kol">🔷 KOL</span>');
+                }
+            }
+            // TVL summary (chart rendered separately)
+            if (s.tvl_history && s.tvl_history.length >= 2) {
+                const first = s.tvl_history[0].tvl, last = s.tvl_history[s.tvl_history.length - 1].tvl;
+                const pct = first > 0 ? ((last - first) / first * 100).toFixed(1) : 0;
+                const dir = last >= first ? 'up' : 'down';
+                parts.push(`<span class="tvl-summary ${dir}">TVL: ${formatTVL(first)} → ${formatTVL(last)} (${pct >= 0 ? '+' : ''}${pct}% 30d)</span>`);
+            }
+            if (!parts.length) return '';
+            return `<div class="signal-meta-row">${parts.join(' ')}</div>`;
+        }
+
+        let tvlChartIdx = 0;
+        function renderSignal(s, signalIdx) {
             if (typeof s === 'string') return `<div class="signal-item"><div class="signal-main">${linkify(s)}</div></div>`;
             const badge = s.source ? `<span class="source-badge">${SOURCE_ICONS[s.source.toLowerCase()] || '📌'}</span>` : '';
             const text = s.url ? `<a href="${s.url}" target="_blank" rel="noopener">${s.text || shortUrl(s.url)}</a>` : (s.text || '');
             const comment = s.comment ? `<div class="signal-comment">${s.comment}</div>` : '';
-            return `<div class="signal-item"><div class="signal-main">${badge}${text}</div>${comment}</div>`;
+            // TVL mini chart placeholder
+            let tvlChart = '';
+            if (s.tvl_history && s.tvl_history.length >= 2) {
+                const cid = `tvl-mini-${tvlChartIdx++}`;
+                const tvlData = JSON.stringify(s.tvl_history).replace(/"/g, '&quot;');
+                tvlChart = `<div class="tvl-mini-chart-wrap"><canvas id="${cid}" width="120" height="60" data-tvl="${tvlData}"></canvas></div>`;
+            }
+            const meta = renderSignalMetaRow(s, signalIdx);
+            return `<div class="signal-item"><div class="signal-main">${badge}${text}${tvlChart}</div>${comment}${meta}</div>`;
         }
 
         function renderSignalBreakdown(signals) {
@@ -813,8 +909,54 @@
                 </div>`).join('')}</div>`;
         }
 
+        function renderNarrativeTVLSummary(signals) {
+            const tvlSignals = (signals || []).filter(s => typeof s === 'object' && s.tvl_history && s.tvl_history.length >= 2);
+            if (!tvlSignals.length) return '';
+            let totalFirst = 0, totalLast = 0;
+            tvlSignals.forEach(s => {
+                totalFirst += s.tvl_history[0].tvl || 0;
+                totalLast += s.tvl_history[s.tvl_history.length - 1].tvl || 0;
+            });
+            if (totalFirst === 0 && totalLast === 0) return '';
+            const pct = totalFirst > 0 ? ((totalLast - totalFirst) / totalFirst * 100).toFixed(0) : 0;
+            const dir = totalLast >= totalFirst ? 'up' : 'down';
+            return `<span class="narrative-tvl-summary ${dir}">📊 Combined TVL: ${formatTVL(totalLast)} (${pct >= 0 ? '+' : ''}${pct}% 30d)</span>`;
+        }
+
+        function createTVLMiniCharts() {
+            if (typeof Chart === 'undefined') return;
+            document.querySelectorAll('canvas[id^="tvl-mini-"]').forEach(canvas => {
+                if (canvas.dataset.rendered) return;
+                const dataStr = canvas.dataset.tvl;
+                if (!dataStr) return;
+                let hist;
+                try { hist = JSON.parse(dataStr); } catch(e) { return; }
+                if (!hist || hist.length < 2) return;
+                const ctx = canvas.getContext('2d');
+                const vals = hist.map(h => h.tvl);
+                const labels = hist.map(h => h.date ? h.date.slice(5) : '');
+                const up = vals[vals.length - 1] >= vals[0];
+                const lineColor = up ? '#00d18c' : '#f87171';
+                const grad = ctx.createLinearGradient(0, 0, 0, 60);
+                grad.addColorStop(0, up ? 'rgba(0,209,140,0.3)' : 'rgba(248,113,113,0.3)');
+                grad.addColorStop(1, 'rgba(0,0,0,0)');
+                canvas.dataset.rendered = '1';
+                new Chart(ctx, {
+                    type: 'line',
+                    data: { labels, datasets: [{ data: vals, borderColor: lineColor, backgroundColor: grad, fill: true, tension: 0.3, pointRadius: 0, borderWidth: 1.5 }] },
+                    options: {
+                        responsive: false, maintainAspectRatio: false,
+                        plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false, callbacks: { label: c => formatTVL(c.parsed.y) } } },
+                        scales: { x: { display: false }, y: { display: false } },
+                        interaction: { mode: 'nearest', axis: 'x', intersect: false }
+                    }
+                });
+            });
+        }
+
         function renderNarrativeCards(narratives) {
             Object.keys(chartInstances).forEach(k => { chartInstances[k].destroy(); delete chartInstances[k]; });
+            tvlChartIdx = 0;
             const html = narratives.map((n, i) => {
                 const conf = (n.confidence || 'low').toLowerCase();
                 const signals = n.supporting_signals || [];
@@ -835,6 +977,7 @@
                         <div class="badges">
                             <span class="badge badge-${conf}">${n.confidence}</span>
                             <span class="badge badge-${(n.direction || '').toLowerCase()}">${n.direction || ''}</span>
+                            ${renderNarrativeTVLSummary(signals)}
                         </div>
                     </div>
                     ${renderVelocity(n)}
@@ -847,8 +990,8 @@
                     ${renderSignalBreakdown(signals)}
                     ${n.market_opportunity ? `<div class="market-opportunity"><div class="label">💎 Market Opportunity</div><div class="content">${n.market_opportunity}</div></div>` : ''}
                     ${signals.length ? `<div class="signals-list" id="${cardId}">
-                        ${signals.slice(0, visibleCount).map(s => renderSignal(s)).join('')}
-                        ${hasMore ? `<div class="signals-hidden" style="display:none">${signals.slice(visibleCount).map(s => renderSignal(s)).join('')}</div>
+                        ${signals.slice(0, visibleCount).map((s, si) => renderSignal(s, si)).join('')}
+                        ${hasMore ? `<div class="signals-hidden" style="display:none">${signals.slice(visibleCount).map((s, si) => renderSignal(s, visibleCount + si)).join('')}</div>
                         <div class="show-all-toggle" onclick="toggleSignals(this, '${cardId}')">Show all ${signals.length} signals ▼</div>` : ''}
                     </div>` : ''}
                     ${n.ideas && n.ideas.length > 0 ? `<div class="ideas-section">
@@ -862,7 +1005,7 @@
                             ${idea.market_analysis ? `<div class="idea-market-analysis">📊 ${idea.market_analysis}</div>` : ''}
                             ${idea.revenue_model ? `<div class="idea-revenue">💰 ${idea.revenue_model}</div>` : ''}
                             <div class="idea-meta">${idea.complexity ? `⏱️ ${idea.complexity}` : ''}${idea.target_user ? ` · 👤 ${idea.target_user}` : ''}${idea.solana_integrations ? ` · 🔗 ${idea.solana_integrations.join(', ')}` : ''}</div>
-                            ${idea.why_it_wins ? `<div class="idea-meta" style="color:var(--accent)">✨ ${idea.why_it_wins}</div>` : ''}
+                            ${idea.why_it_wins ? `<div class="idea-why-now"><span class="prefix">📈 Why now:</span> ${idea.why_it_wins}</div>` : ''}
                             ${idea.reference_links && idea.reference_links.length ? `<div class="idea-refs">Similar: ${idea.reference_links.map(l => `<a href="${l}" target="_blank" rel="noopener">${shortUrl(l)}</a>`).join(', ')}</div>` : ''}
                         </div>`).join('')}
                         </div>
@@ -881,6 +1024,7 @@
                     if (n.velocity && n.velocity.daily_counts) createTrendChart(`trend-${i}`, n.velocity.daily_counts, trend);
                     const sc = getSourceCounts(n.supporting_signals || []);
                     if (Object.keys(sc).length) createDonutChart(`donut-${i}`, sc);
+                    createTVLMiniCharts();
                 });
             });
         }
