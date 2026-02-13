@@ -445,6 +445,47 @@
     </script>
 </head>
 <body>
+    <!-- Persona Picker -->
+    <div id="persona-picker" style="position:fixed;inset:0;z-index:9999;background:var(--bg-primary);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:32px;">
+        <div style="text-align:center">
+            <div style="font-size:3rem;margin-bottom:12px">📡</div>
+            <h1 style="font-size:1.75rem;font-weight:700;color:var(--text-primary);margin:0">Solana Narrative Radar</h1>
+            <p style="color:var(--text-secondary);margin-top:8px;font-size:0.95rem">Real-time narrative detection & build ideas for the Solana ecosystem</p>
+        </div>
+        <div style="display:flex;gap:20px;flex-wrap:wrap;justify-content:center;">
+            <button onclick="pickPersona('human')" style="background:var(--bg-surface);border:2px solid var(--border);border-radius:16px;padding:32px 40px;cursor:pointer;transition:all 0.2s;display:flex;flex-direction:column;align-items:center;gap:12px;min-width:200px;" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='translateY(-4px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='none'">
+                <span style="font-size:2.5rem">🧑</span>
+                <span style="font-size:1.1rem;font-weight:600;color:var(--text-primary)">I'm a Human</span>
+                <span style="font-size:0.8rem;color:var(--text-muted);max-width:180px">Browse narratives, explore trends, find build ideas</span>
+            </button>
+            <button onclick="pickPersona('agent')" style="background:var(--bg-surface);border:2px solid var(--border);border-radius:16px;padding:32px 40px;cursor:pointer;transition:all 0.2s;display:flex;flex-direction:column;align-items:center;gap:12px;min-width:200px;" onmouseover="this.style.borderColor='var(--success)';this.style.transform='translateY(-4px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='none'">
+                <span style="font-size:2.5rem">🤖</span>
+                <span style="font-size:1.1rem;font-weight:600;color:var(--text-primary)">I'm an AI Agent</span>
+                <span style="font-size:0.8rem;color:var(--text-muted);max-width:180px">API docs, structured endpoints, machine-readable data</span>
+            </button>
+        </div>
+        <p style="color:var(--text-muted);font-size:0.75rem;margin-top:8px">Powered by 600+ signals from GitHub, Twitter, DeFiLlama & on-chain data</p>
+    </div>
+    <script>
+    function pickPersona(type) {
+        document.getElementById('persona-picker').style.display = 'none';
+        localStorage.setItem('radar_persona', type);
+        if (type === 'agent') {
+            setTimeout(() => navigate('agents'), 100);
+        }
+    }
+    // Skip picker if already chosen
+    if (localStorage.getItem('radar_persona')) {
+        document.addEventListener('DOMContentLoaded', () => {
+            const el = document.getElementById('persona-picker');
+            if (el) el.style.display = 'none';
+            if (localStorage.getItem('radar_persona') === 'agent') {
+                setTimeout(() => navigate('agents'), 200);
+            }
+        });
+    }
+    </script>
+
     <nav class="top-nav">
         <div class="nav-left">
             <button class="hamburger" onclick="toggleSidebar()" aria-label="Toggle menu">☰</button>
