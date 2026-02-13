@@ -468,6 +468,7 @@
                 <span class="sidebar-count" id="sidebar-count">0</span>
             </div>
             <div class="sidebar-home active" onclick="navigate('')" id="sidebar-home">📊 Overview</div>
+            <div class="sidebar-home" onclick="navigate('agents')" id="sidebar-agents">🤖 For Agents</div>
             <div class="sidebar-list" id="sidebar-list"></div>
         </aside>
         <main class="main-content" id="main-content">
@@ -500,6 +501,54 @@
                 </footer>
             </div>
             <div class="detail-view" id="detail-view" style="display:none"></div>
+            <div class="detail-view" id="agents-view" style="display:none">
+                <h1 style="margin-bottom:8px">🤖 Agent API</h1>
+                <p style="color:var(--text-secondary);margin-bottom:24px">Plug Solana Narrative Radar into your AI agent. Discover what to build on Solana programmatically.</p>
+
+                <div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:20px;margin-bottom:16px">
+                    <h3 style="margin-bottom:12px;color:var(--accent)">Quick Start</h3>
+                    <code style="display:block;background:var(--bg-primary);padding:12px;border-radius:var(--radius-sm);font-size:13px;overflow-x:auto;white-space:pre">curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/discover</code>
+                </div>
+
+                <div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:20px;margin-bottom:16px">
+                    <h3 style="margin-bottom:12px">Endpoints</h3>
+                    <div style="display:flex;flex-direction:column;gap:12px;font-size:13px">
+                        <div>
+                            <strong style="color:var(--success)">GET</strong> <code>/api/agent/ideas</code>
+                            <div style="color:var(--text-secondary);margin-top:4px">All build ideas with full context. Filter: <code>?complexity=DAYS&amp;min_confidence=HIGH&amp;direction=ACCELERATING&amp;topic=defi</code></div>
+                        </div>
+                        <div>
+                            <strong style="color:var(--success)">GET</strong> <code>/api/agent/ideas/{id}</code>
+                            <div style="color:var(--text-secondary);margin-top:4px">Single idea with full detail + supporting signals</div>
+                        </div>
+                        <div>
+                            <strong style="color:var(--success)">GET</strong> <code>/api/agent/narratives</code>
+                            <div style="color:var(--text-secondary);margin-top:4px">All detected narratives with signal counts and ideas</div>
+                        </div>
+                        <div>
+                            <strong style="color:var(--warning)">GET</strong> <code>/api/agent/discover</code>
+                            <div style="color:var(--text-secondary);margin-top:4px">Best build idea right now — includes <code>why_now</code> urgency field</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:20px;margin-bottom:16px">
+                    <h3 style="margin-bottom:12px">OpenAPI &amp; Agent Discovery</h3>
+                    <p style="font-size:13px;color:var(--text-secondary)">
+                        <a href="/openapi.json" style="color:var(--accent)" target="_blank">OpenAPI Spec →</a>&nbsp;&nbsp;
+                        <a href="/.well-known/ai-plugin.json" style="color:var(--accent)" target="_blank">ai-plugin.json →</a>
+                    </p>
+                </div>
+
+                <div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:20px">
+                    <h3 style="margin-bottom:12px">Example: Filter ideas</h3>
+                    <code style="display:block;background:var(--bg-primary);padding:12px;border-radius:var(--radius-sm);font-size:13px;overflow-x:auto;white-space:pre"># Get only quick-build ideas from high-confidence narratives
+curl "https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/ideas?complexity=DAYS&amp;min_confidence=HIGH"
+
+# Get all narratives
+curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narratives</code>
+                </div>
+            </div>
         </main>
     </div>
 
@@ -533,6 +582,7 @@
 
         function handleRoute() {
             const hash = window.location.hash.slice(1);
+            if (hash === 'agents') { showAgentsView(); return; }
             const match = hash.match(/^narrative-(\d+)$/);
             if (match && currentNarratives.length > 0) {
                 const idx = parseInt(match[1]);
@@ -555,10 +605,23 @@
             document.getElementById('sidebar-overlay').classList.remove('visible');
         }
 
+        // === AGENTS VIEW ===
+        function showAgentsView() {
+            document.getElementById('overview-view').style.display = 'none';
+            document.getElementById('detail-view').style.display = 'none';
+            document.getElementById('agents-view').style.display = '';
+            document.getElementById('main-content').scrollTop = 0;
+            document.querySelectorAll('.sidebar-home').forEach(el => el.classList.remove('active'));
+            document.getElementById('sidebar-agents').classList.add('active');
+            document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+            closeSidebar();
+        }
+
         // === OVERVIEW ===
         function showOverview() {
             document.getElementById('overview-view').style.display = '';
             document.getElementById('detail-view').style.display = 'none';
+            document.getElementById('agents-view').style.display = 'none';
             document.getElementById('main-content').scrollTop = 0;
             updateSidebarActive(-1);
             closeSidebar();
@@ -569,6 +632,7 @@
             const n = currentNarratives[idx];
             if (!n) return;
             document.getElementById('overview-view').style.display = 'none';
+            document.getElementById('agents-view').style.display = 'none';
             const dv = document.getElementById('detail-view');
             dv.style.display = '';
             document.getElementById('main-content').scrollTop = 0;

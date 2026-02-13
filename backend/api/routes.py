@@ -1,5 +1,6 @@
-from fastapi import APIRouter, HTTPException, Request
-from typing import Optional
+from fastapi import APIRouter, HTTPException, Request, Query
+from fastapi.responses import JSONResponse
+from typing import Optional, List
 import json
 import os
 import asyncio
@@ -9,6 +10,7 @@ from datetime import datetime, timezone, timedelta
 from collections import defaultdict
 
 router = APIRouter()
+agent_router = APIRouter(prefix="/agent", tags=["Agent API"])
 
 REPORT_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "latest_report.json")
 STATUS_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "pipeline_status.json")
@@ -263,3 +265,201 @@ async def analytics_summary():
         "top_events": [{"event": k, "count": v} for k, v in top_events],
         "top_referrers": [{"referrer": k, "count": v} for k, v in top_referrers],
     }
+
+
+# ── Agent API helpers ──
+
+CONFIDENCE_ORDER = {"HIGH": 3, "MEDIUM": 2, "LOW": 1}
+DIRECTION_ORDER = {"ACCELERATING": 3, "EMERGING": 2, "STABILIZING": 1}
+
+
+def _load_report():
+    if not os.path.exists(REPORT_PATH):
+        return None
+    with open(REPORT_PATH) as f:
+        return json.load(f)
+
+
+def _idea_id(name: str) -> str:
+    return hashlib.sha256(name.encode()).hexdigest()[:12]
+
+
+def _freshness(iso_str: str) -> str:
+    try:
+        dt = datetime.fromisoformat(iso_str)
+        delta = datetime.now(timezone.utc) - dt
+        hours = int(delta.total_seconds() / 3600)
+        if hours < 1:
+            return f"{int(delta.total_seconds() / 60)}m ago"
+        if hours < 24:
+            return f"{hours}h ago"
+        return f"{delta.days}d ago"
+    except Exception:
+        return "unknown"
+
+
+def _build_idea(idea: dict, narrative: dict, generated_at: str) -> dict:
+    return {
+        "id": _idea_id(idea["name"]),
+        "name": idea["name"],
+        "description": idea.get("description", ""),
+        "narrative": narrative["name"],
+        "narrative_confidence": narrative.get("confidence", "MEDIUM"),
+        "narrative_direction": narrative.get("direction", "EMERGING"),
+        "complexity": idea.get("complexity", "WEEKS"),
+        "target_user": idea.get("target_user", ""),
+        "solana_integrations": idea.get("solana_integrations", []),
+        "market_analysis": idea.get("market_analysis", ""),
+        "revenue_model": idea.get("revenue_model", ""),
+        "key_metrics": idea.get("key_metrics", []),
+        "reference_links": idea.get("reference_links", []),
+        "supporting_evidence": narrative.get("supporting_signals", []),
+        "freshness": _freshness(generated_at),
+        "generated_at": generated_at,
+    }
+
+
+def _build_meta(report: dict) -> dict:
+    sig = report.get("signal_summary", {})
+    generated_at = report.get("generated_at", "")
+    narratives = report.get("narratives", [])
+    total_ideas = sum(len(n.get("ideas", [])) for n in narratives)
+    total_signals = sig.get("total_collected", 0)
+
+    sources = []
+    for key in ["github", "twitter", "defillama", "onchain", "birdeye", "social"]:
+        if sig.get(key, sig.get(f"{key}_signals", 0)):
+            sources.append(key)
+    if not sources:
+        sources = list(sig.get("by_source", {}).keys()) if "by_source" in sig else ["github", "twitter", "defillama", "onchain"]
+
+    try:
+        gen_dt = datetime.fromisoformat(generated_at)
+        next_update = (gen_dt + timedelta(hours=2)).isoformat()
+    except Exception:
+        next_update = ""
+
+    return {
+        "total_ideas": total_ideas,
+        "total_narratives": len(narratives),
+        "total_signals_analyzed": total_signals,
+        "sources": sources,
+        "last_updated": generated_at,
+        "next_update": next_update,
+        "update_frequency": "every 2 hours",
+    }
+
+
+@agent_router.get("/ideas", summary="List all build ideas", description="Returns all current Solana build ideas with full context, optimized for AI agent consumption. Filter by complexity, confidence, direction, or topic.")
+async def agent_ideas(
+    complexity: Optional[str] = Query(None, description="Filter by complexity: HOURS, DAYS, WEEKS, MONTHS"),
+    min_confidence: Optional[str] = Query(None, description="Minimum narrative confidence: LOW, MEDIUM, HIGH"),
+    direction: Optional[str] = Query(None, description="Filter by narrative direction: EMERGING, ACCELERATING, STABILIZING"),
+    topic: Optional[str] = Query(None, description="Filter by topic keyword"),
+):
+    report = _load_report()
+    if not report:
+        raise HTTPException(status_code=503, detail="No report available yet. Pipeline may still be running.")
+
+    generated_at = report.get("generated_at", "")
+    ideas = []
+    for narrative in report.get("narratives", []):
+        conf = narrative.get("confidence", "MEDIUM")
+        dirn = narrative.get("direction", "EMERGING")
+
+        if min_confidence and CONFIDENCE_ORDER.get(conf, 0) < CONFIDENCE_ORDER.get(min_confidence.upper(), 0):
+            continue
+        if direction and dirn.upper() != direction.upper():
+            continue
+        if topic and topic.lower() not in [t.lower() for t in narrative.get("topics", [])]:
+            continue
+
+        for idea in narrative.get("ideas", []):
+            if complexity and idea.get("complexity", "").upper() != complexity.upper():
+                continue
+            ideas.append(_build_idea(idea, narrative, generated_at))
+
+    return {"ideas": ideas, "meta": _build_meta(report)}
+
+
+@agent_router.get("/ideas/{idea_id}", summary="Get a single build idea", description="Returns full details for a specific build idea by its ID, including all supporting signals.")
+async def agent_idea_detail(idea_id: str):
+    report = _load_report()
+    if not report:
+        raise HTTPException(status_code=503, detail="No report available yet.")
+
+    generated_at = report.get("generated_at", "")
+    for narrative in report.get("narratives", []):
+        for idea in narrative.get("ideas", []):
+            if _idea_id(idea["name"]) == idea_id:
+                return _build_idea(idea, narrative, generated_at)
+
+    raise HTTPException(status_code=404, detail="Idea not found")
+
+
+@agent_router.get("/narratives", summary="List all narratives", description="Returns all detected Solana narratives with clean structure, status, and signal counts per source.")
+async def agent_narratives():
+    report = _load_report()
+    if not report:
+        raise HTTPException(status_code=503, detail="No report available yet.")
+
+    generated_at = report.get("generated_at", "")
+    narratives = []
+    for n in report.get("narratives", []):
+        narratives.append({
+            "name": n["name"],
+            "confidence": n.get("confidence", "MEDIUM"),
+            "direction": n.get("direction", "EMERGING"),
+            "explanation": n.get("explanation", ""),
+            "topics": n.get("topics", []),
+            "signal_count": len(n.get("supporting_signals", [])),
+            "idea_count": len(n.get("ideas", [])),
+            "supporting_signals": n.get("supporting_signals", []),
+            "ideas": [{"id": _idea_id(i["name"]), "name": i["name"], "complexity": i.get("complexity", "WEEKS")} for i in n.get("ideas", [])],
+        })
+
+    return {
+        "narratives": narratives,
+        "meta": _build_meta(report),
+    }
+
+
+@agent_router.get("/discover", summary="Discover the best build idea", description="Returns the single best build idea right now based on narrative confidence, supporting evidence, and momentum. Includes a 'why_now' field explaining urgency.")
+async def agent_discover():
+    report = _load_report()
+    if not report:
+        raise HTTPException(status_code=503, detail="No report available yet.")
+
+    generated_at = report.get("generated_at", "")
+    best_idea = None
+    best_score = -1
+    best_narrative = None
+
+    for narrative in report.get("narratives", []):
+        conf_score = CONFIDENCE_ORDER.get(narrative.get("confidence", "MEDIUM"), 1)
+        dir_score = DIRECTION_ORDER.get(narrative.get("direction", "EMERGING"), 1)
+        evidence_score = len(narrative.get("supporting_signals", []))
+        score = conf_score * 10 + dir_score * 5 + evidence_score
+
+        for idea in narrative.get("ideas", []):
+            if score > best_score:
+                best_score = score
+                best_idea = idea
+                best_narrative = narrative
+
+    if not best_idea:
+        raise HTTPException(status_code=404, detail="No ideas available")
+
+    result = _build_idea(best_idea, best_narrative, generated_at)
+    conf = best_narrative.get("confidence", "MEDIUM")
+    dirn = best_narrative.get("direction", "EMERGING")
+    signals = len(best_narrative.get("supporting_signals", []))
+    result["why_now"] = (
+        f"The '{best_narrative['name']}' narrative has {conf} confidence and is {dirn}. "
+        f"Backed by {signals} signals across multiple sources. "
+        f"Building now captures first-mover advantage in this trend."
+    )
+    return result
+
+
+router.include_router(agent_router)

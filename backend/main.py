@@ -152,6 +152,21 @@ app.add_middleware(
 
 app.include_router(router, prefix="/api")
 
+
+@app.get("/.well-known/ai-plugin.json", include_in_schema=False)
+async def ai_plugin():
+    return {
+        "schema_version": "v1",
+        "name_for_human": "Solana Narrative Radar",
+        "name_for_model": "solana_narrative_radar",
+        "description_for_human": "Discover emerging Solana narratives and build ideas",
+        "description_for_model": "Use this to find trending narratives in the Solana ecosystem and get actionable build ideas. Query /api/agent/ideas for ideas, /api/agent/discover for the top recommendation, /api/agent/narratives for trend analysis.",
+        "api": {
+            "type": "openapi",
+            "url": "https://solana-narrative-radar-8vsib.ondigitalocean.app/openapi.json"
+        },
+    }
+
 # Serve static frontend
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 if os.path.exists(static_dir):
