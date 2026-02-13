@@ -4,7 +4,7 @@
 Run locally before deploying to populate data/social_cache.json.
 Usage: python precollect_social.py
 """
-import subprocess
+import asyncio
 import json
 import re
 import os
@@ -100,49 +100,18 @@ def extract_topics(text: str) -> list:
     return topics if topics else ["other"]
 
 
-def collect_home_timeline(count=50):
-    """Collect from home timeline, filter Solana-related."""
+async def collect_home_timeline(count=50):
+    """Collect from home timeline via direct Twitter API, filter Solana-related."""
+    from collectors.twitter_api import get_home_timeline
     signals = []
     try:
-        result = subprocess.run(
-            ["xbird", "home", "--count", str(count)],
-            capture_output=True, text=True, timeout=60
-        )
-        if result.returncode == 0:
-            tweets = parse_xbird_output(result.stdout)
-            for t in tweets:
-                if is_solana_related(t.get("text", "")):
-                    signals.append({
-                        "source": "twitter",
-                        "signal_type": "kol_tweet",
-                        "name": f"@{t.get('author', 'unknown')}: {t.get('text', '')[:80]}",
-                        "content": t.get("text", "")[:500],
-                        "author": t.get("author", ""),
-                        "url": t.get("url", ""),
-                        "topics": extract_topics(t.get("text", "")),
-                        "collected_at": datetime.utcnow().isoformat(),
-                    })
-    except Exception as e:
-        print(f"⚠️ Home timeline error: {e}")
-    return signals
-
-
-def collect_search(query, count=20):
-    """Search for a query via xbird."""
-    signals = []
-    try:
-        result = subprocess.run(
-            ["xbird", "search", query, "--count", str(count)],
-            capture_output=True, text=True, timeout=60
-        )
-        if result.returncode == 0:
-            tweets = parse_xbird_output(result.stdout)
-            for t in tweets:
+        tweets = await get_home_timeline(count)
+        for t in tweets:
+            if is_solana_related(t.get("text", "")):
                 signals.append({
                     "source": "twitter",
-                    "signal_type": "trending_topic",
-                    "name": f"Search '{query}': {t.get('text', '')[:60]}",
-                    "query": query,
+                    "signal_type": "kol_tweet",
+                    "name": f"@{t.get('author', 'unknown')}: {t.get('text', '')[:80]}",
                     "content": t.get("text", "")[:500],
                     "author": t.get("author", ""),
                     "url": t.get("url", ""),
@@ -150,25 +119,48 @@ def collect_search(query, count=20):
                     "collected_at": datetime.utcnow().isoformat(),
                 })
     except Exception as e:
+        print(f"⚠️ Home timeline error: {e}")
+    return signals
+
+
+async def collect_search(query, count=20):
+    """Search for a query via direct Twitter API."""
+    from collectors.twitter_api import search_tweets
+    signals = []
+    try:
+        tweets = await search_tweets(query, count)
+        for t in tweets:
+            signals.append({
+                "source": "twitter",
+                "signal_type": "trending_topic",
+                "name": f"Search '{query}': {t.get('text', '')[:60]}",
+                "query": query,
+                "content": t.get("text", "")[:500],
+                "author": t.get("author", ""),
+                "url": t.get("url", ""),
+                "topics": extract_topics(t.get("text", "")),
+                "collected_at": datetime.utcnow().isoformat(),
+            })
+    except Exception as e:
         print(f"⚠️ Search '{query}' error: {e}")
     return signals
 
 
-def main():
+async def async_main():
     os.makedirs(DATA_DIR, exist_ok=True)
     
     all_signals = []
     
     # Home timeline
     print("Collecting home timeline...")
-    home = collect_home_timeline(100)
+    home = await collect_home_timeline(100)
     print(f"  → {len(home)} Solana-related tweets from home")
     all_signals.extend(home)
     
     # Search queries
     for q in SEARCH_QUERIES:
         print(f"Searching: {q}")
-        results = collect_search(q, 20)
+        results = await collect_search(q, 20)
         print(f"  → {len(results)} results")
         all_signals.extend(results)
     
@@ -194,6 +186,10 @@ def main():
         json.dump(cache, f, indent=2)
     
     print(f"\n✅ Saved {len(unique)} signals to {cache_path}")
+
+
+def main():
+    asyncio.run(async_main())
 
 
 if __name__ == "__main__":

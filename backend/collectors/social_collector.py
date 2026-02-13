@@ -68,55 +68,50 @@ async def collect_kol_tweets() -> List[Dict]:
 
 
 async def _collect_via_xbird() -> List[Dict]:
-    """Collect tweets via xbird CLI (only works locally) or Nitter RSS fallback"""
+    """Collect tweets via direct Twitter API (httpx) or fallback to Nitter/syndication."""
+    from .twitter_api import search_tweets, get_home_timeline, get_credentials
+    
     signals = []
     
-    # Try xbird CLI first (local dev only)
-    try:
-        result = subprocess.run(["which", "xbird"], capture_output=True, timeout=5)
-        if result.returncode == 0:
-            result = subprocess.run(
-                ["xbird", "home", "--count", "50"],
-                capture_output=True, text=True, timeout=30
-            )
-            if result.returncode == 0:
-                tweets = _parse_xbird_output(result.stdout)
-                for tweet in tweets:
-                    if _is_solana_related(tweet.get("text", "")):
-                        signals.append({
-                            "source": "twitter",
-                            "signal_type": "kol_tweet",
-                            "name": f"@{tweet.get('author', 'unknown')}: {tweet.get('text', '')[:80]}",
-                            "content": tweet.get("text", "")[:500],
-                            "author": tweet.get("author", ""),
-                            "url": tweet.get("url", ""),
-                            "engagement": tweet.get("likes", 0) + tweet.get("retweets", 0),
-                            "topics": _extract_topics(tweet.get("text", "")),
-                            "collected_at": datetime.utcnow().isoformat()
-                        })
+    # Try direct Twitter API with cookie auth
+    if get_credentials():
+        try:
+            # Home timeline - filter for Solana content
+            home_tweets = await get_home_timeline(50)
+            for tweet in home_tweets:
+                if _is_solana_related(tweet.get("text", "")):
+                    signals.append({
+                        "source": "twitter",
+                        "signal_type": "kol_tweet",
+                        "name": f"@{tweet.get('author', 'unknown')}: {tweet.get('text', '')[:80]}",
+                        "content": tweet.get("text", "")[:500],
+                        "author": tweet.get("author", ""),
+                        "url": tweet.get("url", ""),
+                        "engagement": tweet.get("likes", 0) + tweet.get("retweets", 0),
+                        "topics": _extract_topics(tweet.get("text", "")),
+                        "collected_at": datetime.utcnow().isoformat()
+                    })
             
+            # Search queries
             for query in ["solana narrative", "building on solana", "solana alpha"]:
-                result = subprocess.run(
-                    ["xbird", "search", query, "--count", "20"],
-                    capture_output=True, text=True, timeout=30
-                )
-                if result.returncode == 0:
-                    tweets = _parse_xbird_output(result.stdout)
-                    for tweet in tweets:
-                        signals.append({
-                            "source": "twitter",
-                            "signal_type": "trending_topic",
-                            "name": f"Search '{query}': {tweet.get('text', '')[:60]}",
-                            "query": query,
-                            "content": tweet.get("text", "")[:500],
-                            "url": tweet.get("url", ""),
-                            "topics": _extract_topics(tweet.get("text", "")),
-                            "collected_at": datetime.utcnow().isoformat()
-                        })
+                tweets = await search_tweets(query, 20)
+                for tweet in tweets:
+                    signals.append({
+                        "source": "twitter",
+                        "signal_type": "trending_topic",
+                        "name": f"Search '{query}': {tweet.get('text', '')[:60]}",
+                        "query": query,
+                        "content": tweet.get("text", "")[:500],
+                        "url": tweet.get("url", ""),
+                        "topics": _extract_topics(tweet.get("text", "")),
+                        "collected_at": datetime.utcnow().isoformat()
+                    })
             if signals:
                 return signals
-    except Exception as e:
-        print(f"  ⚠️ xbird collection error: {e}")
+        except Exception as e:
+            print(f"  ⚠️ Twitter API collection error: {e}")
+    else:
+        print("  ⚠️ Twitter credentials not set, skipping direct API")
     
     # Fallback: Nitter RSS feeds for KOL monitoring
     nitter_signals = await _collect_via_nitter()
