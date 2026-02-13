@@ -705,6 +705,10 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                     </div>
                 </div>
                 ${renderVelocity(n)}
+                ${n.detection_count ? `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;font-size:0.8rem;color:var(--text-muted)">
+                    ${n.first_detected ? `<span>📅 First detected: ${freshness(n.first_detected)}</span>` : ''}
+                    ${n.detection_count > 1 ? `<span>🔁 Detected in <b>${n.detection_count}</b>${n.total_pipeline_runs ? '/' + n.total_pipeline_runs : ''} pipeline runs</span>` : ''}
+                </div>` : ''}
                 <p class="detail-explanation">${esc(n.explanation || '')}</p>
                 ${n.trend_evidence ? `<div class="market-opportunity" style="border-left-color:var(--accent)"><div class="label">📊 Why ${n.direction || 'This Trend'}?</div><div class="content" style="white-space:pre-line">${esc(n.trend_evidence)}</div></div>` : ''}
                 ${n.market_opportunity ? `<div class="market-opportunity"><div class="label">💎 Market Opportunity</div><div class="content">${esc(n.market_opportunity)}</div></div>` : ''}
@@ -802,6 +806,7 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                         <span class="sidebar-trend ${trend}" style="font-size:0.75rem">${TREND_ARROWS[trend] || '→'} ${trend}</span>
                         <span>·</span>
                         <span>${signals.length} signals</span>
+                        ${n.detection_count > 1 ? `<span>· <b>${n.detection_count}×</b> detected</span>` : ''}
                         <div class="grid-card-signals">${Object.keys(sc).map(k => `<span title="${k}">${SOURCE_ICONS[k] || '📌'}</span>`).join('')}</div>
                     </div>
                 </div>`;
@@ -838,6 +843,18 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
 
         // === HELPERS ===
         function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+        function freshness(iso) {
+            try {
+                const dt = new Date(iso);
+                const ms = Date.now() - dt.getTime();
+                const mins = Math.floor(ms / 60000);
+                if (mins < 60) return mins + 'm ago';
+                const hrs = Math.floor(mins / 60);
+                if (hrs < 24) return hrs + 'h ago';
+                const days = Math.floor(hrs / 24);
+                return days + 'd ago';
+            } catch(e) { return 'unknown'; }
+        }
 
         function getSourceCounts(signals) {
             const c = {};

@@ -123,7 +123,7 @@ def pre_cluster_signals(signals: List[Dict], similarity_threshold: float = 0.15)
     return sorted_clusters
 
 
-def cluster_narratives(scored_signals: List[Dict]) -> Dict:
+def cluster_narratives(scored_signals: List[Dict], previous_narrative_hints: List[str] = None) -> Dict:
     """Use Claude to cluster signals into narratives"""
     
     # Ensure source diversity: take top signals per source category
@@ -159,6 +159,13 @@ def cluster_narratives(scored_signals: List[Dict]) -> Dict:
     # Format signals for the LLM, organized by pre-clusters
     signal_summary = format_signals_for_llm(top_signals, clusters=clusters)
     
+    # Build previous narrative hints section
+    prev_section = ""
+    if previous_narrative_hints:
+        prev_section = "\nPREVIOUSLY DETECTED NARRATIVES (reuse these exact names if the narrative still exists):\n"
+        prev_section += "\n".join(previous_narrative_hints[:15])
+        prev_section += "\n\nIMPORTANT: If a narrative from the list above still shows up in the signals, use the SAME NAME. Only create new names for genuinely new narratives.\n"
+    
     client = Anthropic(api_key=ANTHROPIC_API_KEY)
     
     response = client.messages.create(
@@ -167,6 +174,7 @@ def cluster_narratives(scored_signals: List[Dict]) -> Dict:
         messages=[{
             "role": "user",
             "content": f"""You are an expert Solana ecosystem analyst. Analyze these signals collected from the Solana ecosystem over the past 2 weeks and identify emerging narratives.
+{prev_section}
 
 SIGNALS:
 {signal_summary}

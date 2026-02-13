@@ -14,6 +14,11 @@ from engine.scorer import score_signals
 from engine.narrative_engine import cluster_narratives, generate_ideas
 from engine.store import save_run, get_signal_velocity, get_stats
 from engine.narrative_tracker import update_narrative_states
+from engine.narrative_store import (
+    load_store, save_store, merge_narratives,
+    get_active_narratives, get_recently_faded,
+    get_active_narrative_hints, store_entry_to_api,
+)
 
 
 async def run_pipeline() -> Dict:
@@ -57,7 +62,12 @@ async def run_pipeline() -> Dict:
     
     # Phase 3: Cluster into narratives
     print("  [7/7] Detecting narratives...")
-    narrative_result = cluster_narratives(scored)
+    
+    # Load persistent store and pass hints to LLM
+    narrative_store = load_store()
+    prev_hints = get_active_narrative_hints(narrative_store)
+    
+    narrative_result = cluster_narratives(scored, previous_narrative_hints=prev_hints)
     
     # Phase 4: Generate ideas for each narrative
     narratives = narrative_result.get("narratives", [])
@@ -66,6 +76,22 @@ async def run_pipeline() -> Dict:
         narratives_with_ideas = generate_ideas(narratives)
     else:
         narratives_with_ideas = []
+    
+    # Phase 5: Merge into persistent narrative store
+    print("  [+] Updating narrative store...")
+    narrative_store = merge_narratives(narratives_with_ideas, narrative_store)
+    save_store(narrative_store)
+    
+    # Build report from the store (ACTIVE + recently FADED)
+    active = get_active_narratives(narrative_store)
+    faded = get_recently_faded(narrative_store, hours=24)
+    total_runs = narrative_store.get("total_pipeline_runs", 0)
+    
+    store_narratives = []
+    for entry in active + faded:
+        api_entry = store_entry_to_api(entry)
+        api_entry["total_pipeline_runs"] = total_runs
+        store_narratives.append(api_entry)
     
     # Build final report
     report = {
@@ -83,21 +109,19 @@ async def run_pipeline() -> Dict:
             "birdeye_signals": len(birdeye_signals),
             "high_score_signals": len([s for s in scored if s.get("score", 0) > 60])
         },
-        "narratives": narratives_with_ideas,
+        "narratives": store_narratives,
         "generated_at": datetime.utcnow().isoformat(),
-        "version": "0.1.0"
+        "version": "0.2.0"
     }
     
-    # Enrich narratives with state tracking (NEW/RISING/STABLE/DECLINING/FADED)
-    narratives_with_ideas = update_narrative_states(narratives_with_ideas)
-    report["narratives"] = narratives_with_ideas
-    
     # Enrich narratives with velocity data from history
-    for n in narratives_with_ideas:
+    for n in store_narratives:
         name_lower = n.get("name", "").lower()
         velocity = get_signal_velocity(name_lower)
         if velocity.get("data_points", 0) >= 2:
             n["velocity"] = velocity
+    
+    report["narratives"] = store_narratives
     
     # Save report
     with open(os.path.join(data_dir, "latest_report.json"), "w") as f:
@@ -111,11 +135,13 @@ async def run_pipeline() -> Dict:
     # Persist to SQLite
     run_id = str(uuid.uuid4())
     try:
-        save_run(run_id, scored, narratives_with_ideas, report.get("signal_summary", {}))
+        save_run(run_id, scored, store_narratives, report.get("signal_summary", {}))
         db_stats = get_stats()
         print(f"  💾 Persisted to DB (total: {db_stats['total_signals_collected']} signals, {db_stats['total_runs']} runs)")
     except Exception as e:
         print(f"  ⚠️ DB persist error: {e}")
     
-    print(f"✅ Pipeline complete! Found {len(narratives_with_ideas)} narratives")
+    active_count = len([n for n in store_narratives if n.get("status") == "ACTIVE"])
+    faded_count = len([n for n in store_narratives if n.get("status") == "FADED"])
+    print(f"✅ Pipeline complete! {active_count} active narratives, {faded_count} recently faded")
     return report

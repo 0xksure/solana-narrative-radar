@@ -16,6 +16,10 @@ REPORT_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "latest_repo
 STATUS_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "pipeline_status.json")
 ANALYTICS_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "analytics.jsonl")
 
+from engine.narrative_store import (
+    load_store, get_active_narratives, get_recently_faded, store_entry_to_api,
+)
+
 # Rate limiting: track events per hashed IP
 _rate_limit: dict[str, list[float]] = defaultdict(list)
 RATE_LIMIT_MAX = 100
@@ -24,13 +28,40 @@ RATE_LIMIT_WINDOW = 3600  # 1 hour
 
 @router.get("/narratives")
 async def get_narratives(period: Optional[str] = "current"):
-    """Get detected narratives for the current or historical period"""
+    """Get detected narratives from the persistent store (ACTIVE + recently FADED)"""
     try:
+        # Try persistent store first
+        store = load_store()
+        if store.get("narratives"):
+            active = get_active_narratives(store)
+            faded = get_recently_faded(store, hours=24)
+            total_runs = store.get("total_pipeline_runs", 0)
+
+            api_narratives = []
+            for entry in active + faded:
+                api_entry = store_entry_to_api(entry)
+                api_entry["total_pipeline_runs"] = total_runs
+                api_narratives.append(api_entry)
+
+            # Load report for signal_summary and other metadata
+            report = {}
+            if os.path.exists(REPORT_PATH):
+                with open(REPORT_PATH) as f:
+                    report = json.load(f)
+
+            return {
+                "narratives": api_narratives,
+                "signal_summary": report.get("signal_summary", {}),
+                "generated_at": report.get("generated_at", store.get("last_updated", "")),
+                "report_period": report.get("report_period", {}),
+                "version": "0.2.0",
+            }
+
+        # Fall back to report file
         if os.path.exists(REPORT_PATH):
             with open(REPORT_PATH) as f:
                 return json.load(f)
 
-        # Check if pipeline is currently running
         status = _load_status()
         if status.get("status") == "running":
             return {"narratives": [], "message": "Generating first report... please wait."}
@@ -274,6 +305,28 @@ DIRECTION_ORDER = {"ACCELERATING": 3, "EMERGING": 2, "STABILIZING": 1}
 
 
 def _load_report():
+    """Load report, preferring persistent store for narratives."""
+    store = load_store()
+    if store.get("narratives"):
+        active = get_active_narratives(store)
+        faded = get_recently_faded(store, hours=24)
+        total_runs = store.get("total_pipeline_runs", 0)
+        api_narratives = []
+        for entry in active + faded:
+            api_entry = store_entry_to_api(entry)
+            api_entry["total_pipeline_runs"] = total_runs
+            api_narratives.append(api_entry)
+
+        # Load base report for metadata
+        report = {}
+        if os.path.exists(REPORT_PATH):
+            with open(REPORT_PATH) as f:
+                report = json.load(f)
+        report["narratives"] = api_narratives
+        if not report.get("generated_at"):
+            report["generated_at"] = store.get("last_updated", "")
+        return report
+
     if not os.path.exists(REPORT_PATH):
         return None
     with open(REPORT_PATH) as f:
