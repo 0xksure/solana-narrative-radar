@@ -111,6 +111,51 @@ def _load_status():
         return {}
 
 
+@router.get("/history")
+async def get_history(days: int = 30):
+    """Get signal counts per day for the last N days"""
+    try:
+        from engine.store import get_db
+        conn = get_db()
+        try:
+            cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+            rows = conn.execute("""
+                SELECT date(collected_at) as day, COUNT(*) as signal_count,
+                       COUNT(DISTINCT source) as source_count
+                FROM signals
+                WHERE collected_at > ?
+                GROUP BY date(collected_at)
+                ORDER BY day
+            """, (cutoff,)).fetchall()
+
+            narrative_rows = conn.execute("""
+                SELECT date(generated_at) as day, COUNT(*) as narrative_count
+                FROM narratives
+                WHERE generated_at > ?
+                GROUP BY date(generated_at)
+                ORDER BY day
+            """, (cutoff,)).fetchall()
+
+            narrative_map = {str(r["day"]): r["narrative_count"] for r in narrative_rows}
+
+            return {
+                "days": days,
+                "history": [
+                    {
+                        "date": str(r["day"]),
+                        "signal_count": r["signal_count"],
+                        "source_count": r["source_count"],
+                        "narrative_count": narrative_map.get(str(r["day"]), 0),
+                    }
+                    for r in rows
+                ],
+            }
+        finally:
+            conn.close()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/config")
 async def get_config():
     """Return public frontend config (e.g. Sentry DSN)."""
