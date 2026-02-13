@@ -19,6 +19,40 @@
         h1 { font-size: 2.5em; color: #9945FF; margin-bottom: 10px; }
         .subtitle { color: #999; font-size: 1.1em; }
         
+        /* About section */
+        .about-section {
+            background: linear-gradient(135deg, #12121f 0%, #161630 100%);
+            border: 1px solid #2a2a4a; border-radius: 12px;
+            margin-bottom: 24px; overflow: hidden;
+        }
+        .about-toggle {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 16px 20px; cursor: pointer; user-select: none;
+            background: rgba(153,69,255,0.06);
+        }
+        .about-toggle:hover { background: rgba(153,69,255,0.12); }
+        .about-toggle h2 { font-size: 1.1em; color: #c4b5fd; }
+        .about-toggle .chevron { color: #9945FF; font-size: 1.2em; transition: transform 0.2s; }
+        .about-section.collapsed .chevron { transform: rotate(-90deg); }
+        .about-section.collapsed .about-body { display: none; }
+        .about-body { padding: 0 20px 20px; }
+        .about-body p { color: #aaa; font-size: 0.95em; margin-top: 12px; line-height: 1.7; }
+        .about-body strong { color: #e0e0e0; }
+        .about-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px; }
+        .about-col { background: #0d0d18; border-radius: 8px; padding: 14px; border: 1px solid #222; }
+        .about-col h3 { font-size: 0.95em; color: #14F195; margin-bottom: 6px; }
+        .about-col ul { list-style: none; }
+        .about-col li { color: #aaa; font-size: 0.9em; padding: 2px 0; }
+        .about-col li::before { content: '→ '; color: #9945FF; }
+        @media (max-width: 768px) { .about-columns { grid-template-columns: 1fr; } }
+        
+        /* Section headers */
+        .section-header {
+            margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid #1a1a2e;
+        }
+        .section-header h2 { font-size: 1.2em; color: #e0e0e0; margin-bottom: 4px; }
+        .section-header p { font-size: 0.9em; color: #777; }
+
         /* Meta bar */
         .meta-bar { 
             display: flex; justify-content: space-between; align-items: center;
@@ -42,22 +76,16 @@
             padding: 8px 12px; border-radius: 6px; font-size: 0.9em; cursor: pointer;
         }
         
-        /* Narrative cards with confidence-based visual hierarchy */
+        /* Narrative cards */
         .narrative-card {
             background: #111118; border: 1px solid #222; border-radius: 12px;
             padding: 24px; margin-bottom: 24px; transition: all 0.3s;
             border-left: 4px solid #333;
         }
         .narrative-card:hover { border-color: #9945FF; border-left-color: #9945FF; }
-        .narrative-card.confidence-high {
-            border-left-color: #4ade80; background: #0d1117;
-        }
-        .narrative-card.confidence-medium {
-            border-left-color: #fb923c;
-        }
-        .narrative-card.confidence-low {
-            border-left-color: #818cf8; opacity: 0.85;
-        }
+        .narrative-card.confidence-high { border-left-color: #4ade80; background: #0d1117; }
+        .narrative-card.confidence-medium { border-left-color: #fb923c; }
+        .narrative-card.confidence-low { border-left-color: #818cf8; opacity: 0.85; }
         
         .narrative-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
         .narrative-name { font-size: 1.4em; font-weight: bold; color: #fff; }
@@ -77,6 +105,24 @@
         
         .narrative-explanation { color: #bbb; margin: 12px 0; font-size: 1em; line-height: 1.7; }
         
+        /* Market opportunity callout */
+        .market-opportunity {
+            background: linear-gradient(135deg, #1a1a0a 0%, #1a2a0a 100%);
+            border: 1px solid #2a3a1a; border-left: 3px solid #4ade80;
+            border-radius: 8px; padding: 14px 16px; margin: 14px 0;
+        }
+        .market-opportunity .label { color: #4ade80; font-weight: bold; font-size: 0.9em; margin-bottom: 4px; }
+        .market-opportunity .content { color: #ccc; font-size: 0.95em; line-height: 1.6; }
+        
+        /* References */
+        .references { margin: 12px 0; }
+        .references .label { color: #777; font-size: 0.85em; margin-bottom: 4px; }
+        .references a {
+            color: #9945FF; text-decoration: none; font-size: 0.9em;
+            margin-right: 12px; display: inline-block; margin-bottom: 4px;
+        }
+        .references a:hover { text-decoration: underline; }
+        
         .signals-list { margin: 12px 0; }
         .signal-item { 
             color: #999; font-size: 0.95em; padding: 6px 0;
@@ -85,21 +131,28 @@
         .signal-item a { color: #9945FF; text-decoration: none; }
         .signal-item a:hover { text-decoration: underline; }
         
-        .ideas-title { color: #9945FF; font-size: 1.05em; margin-bottom: 8px; font-weight: bold; }
+        /* Ideas section - enhanced */
+        .ideas-title { color: #9945FF; font-size: 1.05em; margin-bottom: 4px; font-weight: bold; }
+        .ideas-subtitle { color: #666; font-size: 0.85em; margin-bottom: 12px; }
         .ideas-section {
-            margin-top: 16px; padding: 16px; border-radius: 10px;
+            margin-top: 20px; padding: 20px; border-radius: 10px;
             background: linear-gradient(135deg, #0d0d1a 0%, #111125 100%);
             border: 1px solid #2a2a4a;
         }
         .idea-card {
             background: #0a0a14; border: 1px solid #1a1a2e; border-radius: 8px;
-            padding: 14px 18px; margin: 8px 0;
+            padding: 16px 20px; margin: 10px 0;
         }
-        .idea-name { color: #14F195; font-weight: bold; font-size: 1em; }
-        .idea-desc { color: #bbb; font-size: 0.95em; margin-top: 4px; }
+        .idea-name { color: #14F195; font-weight: bold; font-size: 1.05em; }
+        .idea-desc { color: #bbb; font-size: 0.95em; margin-top: 6px; line-height: 1.6; }
+        .idea-market-analysis { color: #aaa; font-size: 0.9em; margin-top: 8px; padding: 8px 12px; background: #0d0d18; border-radius: 6px; border-left: 2px solid #818cf8; }
+        .idea-revenue { color: #fb923c; font-size: 0.9em; margin-top: 6px; }
+        .idea-refs { color: #777; font-size: 0.85em; margin-top: 6px; }
+        .idea-refs a { color: #9945FF; text-decoration: none; }
+        .idea-refs a:hover { text-decoration: underline; }
         .idea-meta { color: #777; font-size: 0.9em; margin-top: 6px; }
         
-        /* Loading overlay */
+        /* Loading */
         .loading { text-align: center; padding: 60px; color: #888; font-size: 1.1em; }
         .loading-overlay {
             position: fixed; inset: 0; background: rgba(10,10,15,0.85);
@@ -132,7 +185,6 @@
             border-radius: 6px; cursor: pointer; font-size: 0.9em; white-space: nowrap;
         }
         
-        /* Button */
         .btn {
             background: #9945FF; color: white; border: none; padding: 12px 28px;
             border-radius: 8px; cursor: pointer; font-size: 1em; transition: all 0.3s;
@@ -144,8 +196,10 @@
         
         footer { text-align: center; padding: 30px; color: #555; font-size: 0.9em; border-top: 1px solid #222; margin-top: 40px; }
         footer a { color: #9945FF; text-decoration: none; }
+        footer a:hover { text-decoration: underline; }
+        .footer-links { margin-top: 10px; display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; }
+        .footer-links a { font-size: 0.85em; }
         
-        /* Responsive */
         @media (max-width: 768px) {
             h1 { font-size: 1.8em; }
             .container { padding: 12px; }
@@ -156,8 +210,7 @@
         }
         @media (min-width: 769px) and (max-width: 1024px) {
             .container { padding: 16px 24px; }
-            .ideas-section { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-            .ideas-title { grid-column: 1 / -1; }
+            .ideas-section .ideas-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         }
     </style>
 </head>
@@ -168,6 +221,42 @@
     </header>
     
     <div class="container">
+        <!-- About Section -->
+        <div class="about-section" id="about-section">
+            <div class="about-toggle" onclick="toggleAbout()">
+                <h2>ℹ️ How to Read This Dashboard</h2>
+                <span class="chevron">▼</span>
+            </div>
+            <div class="about-body">
+                <p>
+                    <strong>Solana Narrative Radar</strong> is an autonomous AI agent that continuously monitors 
+                    <strong>4+ data sources</strong> — GitHub repositories, DeFiLlama DeFi metrics, social media (Reddit, Twitter), 
+                    and on-chain activity — to identify emerging trends and product opportunities in the Solana ecosystem.
+                </p>
+                <div class="about-columns">
+                    <div class="about-col">
+                        <h3>📊 Reading Narratives</h3>
+                        <ul>
+                            <li><strong>Narrative</strong> = a trend or theme gaining traction</li>
+                            <li><strong>Confidence</strong> = how strongly supported by data (High / Medium / Low)</li>
+                            <li><strong>Direction</strong> = momentum — Accelerating, Emerging, or Stabilizing</li>
+                            <li><strong>Supporting Signals</strong> = the raw evidence behind the narrative</li>
+                        </ul>
+                    </div>
+                    <div class="about-col">
+                        <h3>📈 Signal Counts (Meta Bar)</h3>
+                        <ul>
+                            <li><strong>GitHub</strong> = new repos, PRs, stars in Solana ecosystem</li>
+                            <li><strong>DeFi</strong> = TVL changes, new protocols, yield shifts</li>
+                            <li><strong>Social</strong> = Reddit posts, Twitter mentions, sentiment</li>
+                            <li><strong>On-chain</strong> = transaction patterns, program deployments</li>
+                            <li><strong>High-signal</strong> = signals scoring above the noise threshold</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="meta-bar" id="meta-bar">
             <div class="meta-item">Loading...</div>
         </div>
@@ -179,6 +268,12 @@
                 <option value="confidence">Confidence (high→low)</option>
                 <option value="direction">Direction (accelerating first)</option>
             </select>
+        </div>
+        
+        <!-- Section header for narratives -->
+        <div class="section-header" id="narratives-header" style="display:none">
+            <h2>🔍 Detected Narratives</h2>
+            <p>AI-identified trends based on real-time signals from GitHub, DeFiLlama, social media, and on-chain data</p>
         </div>
         
         <div id="narratives">
@@ -196,7 +291,13 @@
     
     <footer>
         <p>🤖 Autonomous AI Agent | Monitors GitHub, DeFiLlama, Reddit & Twitter</p>
-        <p style="margin-top:6px">Auto-refreshes every 4 hours · <a href="https://github.com/0xksure/solana-narrative-radar">View on GitHub</a></p>
+        <p style="margin-top:6px">Auto-refreshes every 4 hours</p>
+        <div class="footer-links">
+            <a href="https://github.com/0xksure/solana-narrative-radar" target="_blank">📂 GitHub Repo</a>
+            <a href="https://github.com/0xksure/solana-narrative-radar#readme" target="_blank">📖 Methodology</a>
+            <a href="https://defillama.com/" target="_blank" rel="noopener">📈 DeFiLlama</a>
+            <a href="https://github.com/solana-labs" target="_blank" rel="noopener">🐙 Solana GitHub</a>
+        </div>
     </footer>
 
     <script>
@@ -204,7 +305,10 @@
         let currentNarratives = [];
         let reportGeneratedAt = null;
         
-        // Live timestamp updater
+        function toggleAbout() {
+            document.getElementById('about-section').classList.toggle('collapsed');
+        }
+        
         setInterval(() => {
             if (!reportGeneratedAt) return;
             const el = document.getElementById('last-updated');
@@ -253,8 +357,6 @@
         async function generateReport() {
             if (isGenerating) return;
             isGenerating = true;
-            
-            // Show overlay, disable button
             document.getElementById('loading-overlay').style.display = 'flex';
             document.querySelectorAll('.btn').forEach(b => b.disabled = true);
             
@@ -303,6 +405,7 @@
         function renderNarratives(narratives) {
             currentNarratives = narratives;
             document.getElementById('filter-bar').style.display = narratives.length ? 'flex' : 'none';
+            document.getElementById('narratives-header').style.display = narratives.length ? 'block' : 'none';
             renderNarrativeCards(narratives);
         }
         
@@ -320,6 +423,13 @@
                     </div>
                     <p class="narrative-explanation">${n.explanation || ''}</p>
                     
+                    ${n.market_opportunity ? `
+                        <div class="market-opportunity">
+                            <div class="label">💎 Market Opportunity</div>
+                            <div class="content">${n.market_opportunity}</div>
+                        </div>
+                    ` : ''}
+                    
                     ${n.supporting_signals ? `
                         <div class="signals-list">
                             ${n.supporting_signals.slice(0, 5).map(s => 
@@ -331,24 +441,50 @@
                     ${n.ideas && n.ideas.length > 0 ? `
                         <div class="ideas-section">
                             <div class="ideas-title">💡 Build Ideas</div>
+                            <div class="ideas-subtitle">Product opportunities identified by AI analysis</div>
+                            <div class="ideas-grid">
                             ${n.ideas.map(idea => `
                                 <div class="idea-card">
                                     <div class="idea-name">${idea.name}</div>
                                     <div class="idea-desc">${idea.description}</div>
+                                    ${idea.market_analysis ? `<div class="idea-market-analysis">📊 ${idea.market_analysis}</div>` : ''}
+                                    ${idea.revenue_model ? `<div class="idea-revenue">💰 ${idea.revenue_model}</div>` : ''}
                                     <div class="idea-meta">
                                         ${idea.complexity ? `⏱️ ${idea.complexity}` : ''}
                                         ${idea.target_user ? ` · 👤 ${idea.target_user}` : ''}
                                         ${idea.solana_integrations ? ` · 🔗 ${idea.solana_integrations.join(', ')}` : ''}
                                     </div>
                                     ${idea.why_it_wins ? `<div class="idea-meta" style="color:#9945FF">✨ ${idea.why_it_wins}</div>` : ''}
+                                    ${idea.reference_links && idea.reference_links.length ? `
+                                        <div class="idea-refs">Similar: ${idea.reference_links.map(l => `<a href="${l}" target="_blank" rel="noopener">${shortUrl(l)}</a>`).join(', ')}</div>
+                                    ` : ''}
                                 </div>
                             `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    ${n.references && n.references.length ? `
+                        <div class="references">
+                            <div class="label">🔗 References</div>
+                            ${n.references.map(r => {
+                                const url = typeof r === 'string' ? r : r.url;
+                                const label = (typeof r === 'object' && r.title) ? r.title : shortUrl(url);
+                                return `<a href="${url}" target="_blank" rel="noopener">${label}</a>`;
+                            }).join('')}
                         </div>
                     ` : ''}
                 </div>
             `}).join('');
             
             document.getElementById('narratives').innerHTML = html;
+        }
+        
+        function shortUrl(url) {
+            try {
+                const u = new URL(url);
+                return u.hostname.replace('www.', '') + (u.pathname.length > 25 ? u.pathname.slice(0, 25) + '…' : u.pathname);
+            } catch(e) { return url; }
         }
         
         function linkify(text) {
