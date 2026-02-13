@@ -501,6 +501,10 @@ def filter_spam(signals: List[Dict]) -> List[Dict]:
         if re.match(r'^\s*\$[A-Z]{2,10}\s+\$?\d+[\d.,]*\s*$', content.strip()):
             continue
         
+        # Skip self-promotional / OpenClaw-related content
+        if any(kw in content_lower for kw in ("openclaw", "clawver", "clawd", "clawdbot")):
+            continue
+        
         # Deduplicate near-identical content (normalize whitespace for comparison)
         normalized = re.sub(r'\s+', ' ', content.strip().lower())[:200]
         if normalized in seen_texts:

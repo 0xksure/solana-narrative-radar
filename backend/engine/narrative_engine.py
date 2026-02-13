@@ -128,7 +128,7 @@ def cluster_narratives(scored_signals: List[Dict], previous_narrative_hints: Lis
     
     # Ensure source diversity: take top signals per source category
     # so GitHub/DeFiLlama don't drown out social/onchain signals
-    scored_above_threshold = [s for s in scored_signals if s.get("score", 0) > 20]
+    scored_above_threshold = [s for s in scored_signals if s.get("score", 0) > 5]
     scored_above_threshold.sort(key=lambda x: x.get("score", 0), reverse=True)
     
     top_per_source = {}
@@ -137,14 +137,14 @@ def cluster_narratives(scored_signals: List[Dict], previous_narrative_hints: Lis
         src_key = "social" if src in ("twitter", "reddit", "twitter_nitter", "twitter_syndication") else src
         if src_key not in top_per_source:
             top_per_source[src_key] = []
-        if len(top_per_source[src_key]) < 15:  # max 15 per source category
+        if len(top_per_source[src_key]) < 25:  # max 25 per source category
             top_per_source[src_key].append(s)
     
     top_signals = []
     for signals in top_per_source.values():
         top_signals.extend(signals)
     top_signals.sort(key=lambda x: x.get("score", 0), reverse=True)
-    top_signals = top_signals[:60]
+    top_signals = top_signals[:100]
     
     if not top_signals:
         return {"narratives": [], "meta": {"signal_count": 0}}
@@ -183,13 +183,13 @@ For each narrative you detect:
 1. Give it a clear, concise name
 2. Confidence level: HIGH (3+ sources confirm), MEDIUM (2 sources), or LOW (single source)
 3. A 2-4 sentence explanation written for a non-technical audience
-4. List 3-8 supporting signals from MULTIPLE source types (GitHub + Twitter + DeFiLlama + On-chain). Cross-source narratives are stronger.
+4. List 8-15 supporting signals from MULTIPLE source types (GitHub + Twitter + DeFiLlama + On-chain). Cross-source narratives are stronger.
 5. Trend direction with DATA-BACKED justification:
    - ACCELERATING: cite specific growth numbers (e.g., "TVL up 25% in 7d", "3 new repos this week", "tweet got 500 likes")
    - EMERGING: cite first appearances (e.g., "first protocol launched 2 weeks ago", "new category on DeFiLlama")
    - STABILIZING: cite plateau data (e.g., "TVL steady at $X for 30d", "GitHub activity flat")
 
-Identify 4-8 narratives. CRITICAL RULES:
+Identify 8-10 narratives. Include a MIX of confidence levels: 2-3 HIGH, 3-4 MEDIUM, and 2-3 LOW confidence narratives. CRITICAL RULES:
 - Each narrative MUST include signals from at least 2 different source types (github, twitter, defillama, onchain)
 - Prioritize narratives where Twitter engagement + DeFi data + GitHub activity converge
 - Include specific numbers in explanations (TVL amounts, % changes, star counts, like counts)

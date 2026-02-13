@@ -269,5 +269,7 @@ def store_entry_to_api(entry: Dict) -> Dict:
         "first_detected": entry.get("first_detected", ""),
         "last_detected": entry.get("last_detected", ""),
         "detection_count": entry.get("detection_count", 0),
+        "confidence_history": entry.get("confidence_history", []),
+        "direction_history": entry.get("direction_history", []),
         "total_pipeline_runs": 0,  # filled in by caller
     }

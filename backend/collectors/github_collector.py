@@ -7,6 +7,19 @@ from typing import List, Dict
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
 HEADERS = {"Authorization": f"token {GITHUB_TOKEN}"} if GITHUB_TOKEN else {}
 
+# Blocklist: exclude self-promotional / OpenClaw-related repos and orgs
+BLOCKED_OWNERS = {"openclaw", "clawver", "clawd", "clawdbot", "0xksure"}
+BLOCKED_REPO_KEYWORDS = {"openclaw", "clawver", "clawd", "clawdbot"}
+
+
+def _is_blocked_repo(item: dict) -> bool:
+    """Return True if this repo should be excluded."""
+    owner = (item.get("owner", {}).get("login", "") or "").lower()
+    full_name = (item.get("full_name", "") or "").lower()
+    if owner in BLOCKED_OWNERS:
+        return True
+    return any(kw in full_name for kw in BLOCKED_REPO_KEYWORDS)
+
 async def collect_new_solana_repos(days_back: int = 14) -> List[Dict]:
     """Find new Solana-related repos created in the last N days"""
     since = (datetime.utcnow() - timedelta(days=days_back)).strftime("%Y-%m-%d")
@@ -26,6 +39,8 @@ async def collect_new_solana_repos(days_back: int = 14) -> List[Dict]:
         data = resp.json()
         repos = []
         for item in data.get("items", []):
+            if _is_blocked_repo(item):
+                continue
             repos.append({
                 "source": "github",
                 "signal_type": "new_repo",
@@ -63,6 +78,8 @@ async def collect_trending_solana_repos() -> List[Dict]:
             )
             if resp.status_code == 200:
                 for item in resp.json().get("items", []):
+                    if _is_blocked_repo(item):
+                        continue
                     all_repos.append({
                         "source": "github",
                         "signal_type": "trending_repo",

@@ -385,6 +385,14 @@
 
         /* Skeleton */
         .skeleton { background: linear-gradient(90deg, var(--bg-surface) 25%, var(--bg-elevated) 50%, var(--bg-surface) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: var(--radius-sm); }
+        .kpi-skeleton { display: inline-block; width: 48px; height: 28px; vertical-align: middle; }
+        .kpi-value .kpi-skeleton { border-radius: 6px; }
+        #loading-overlay-init { position: fixed; inset: 0; z-index: 9999; background: var(--bg-base); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 16px; transition: opacity 0.4s ease; }
+        #loading-overlay-init.fade-out { opacity: 0; pointer-events: none; }
+        #loading-overlay-init .spinner-ring { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes countUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        .kpi-value.animated { animation: countUp 0.35s ease-out; }
         @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
         .skeleton-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px; margin-bottom: 16px; }
         .skeleton-line { height: 14px; margin-bottom: 10px; border-radius: 4px; }
@@ -445,6 +453,7 @@
     </script>
 </head>
 <body>
+    <div id="loading-overlay-init"><div class="spinner-ring"></div><div style="color:var(--text-muted);font-size:0.85rem">Loading narratives…</div></div>
     <!-- Persona Picker -->
     <div id="persona-picker" style="position:fixed;inset:0;z-index:9999;background:var(--bg-primary);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:32px;">
         <div style="text-align:center">
@@ -519,12 +528,12 @@
                     <p>AI-powered detection of emerging Solana narratives · <a href="https://github.com/0xksure/solana-narrative-radar#readme">How it works →</a></p>
                 </div>
                 <div class="kpi-grid" id="kpi-grid">
-                    <div class="kpi-card"><div class="kpi-label">Total Signals</div><div class="kpi-value" id="kpi-total">—</div><div class="kpi-change" id="kpi-total-change"></div></div>
-                    <div class="kpi-card"><div class="kpi-label">GitHub</div><div class="kpi-value" id="kpi-github">—</div></div>
-                    <div class="kpi-card"><div class="kpi-label">DeFi</div><div class="kpi-value" id="kpi-defi">—</div></div>
-                    <div class="kpi-card"><div class="kpi-label">Social</div><div class="kpi-value" id="kpi-social">—</div></div>
-                    <div class="kpi-card"><div class="kpi-label">On-chain</div><div class="kpi-value" id="kpi-onchain">—</div></div>
-                    <div class="kpi-card"><div class="kpi-label">Narratives</div><div class="kpi-value accent" id="kpi-narratives">—</div></div>
+                    <div class="kpi-card"><div class="kpi-label">Total Signals</div><div class="kpi-value" id="kpi-total"><span class="skeleton kpi-skeleton"></span></div><div class="kpi-change" id="kpi-total-change"></div></div>
+                    <div class="kpi-card"><div class="kpi-label">GitHub</div><div class="kpi-value" id="kpi-github"><span class="skeleton kpi-skeleton"></span></div></div>
+                    <div class="kpi-card"><div class="kpi-label">DeFi</div><div class="kpi-value" id="kpi-defi"><span class="skeleton kpi-skeleton"></span></div></div>
+                    <div class="kpi-card"><div class="kpi-label">Social</div><div class="kpi-value" id="kpi-social"><span class="skeleton kpi-skeleton"></span></div></div>
+                    <div class="kpi-card"><div class="kpi-label">On-chain</div><div class="kpi-value" id="kpi-onchain"><span class="skeleton kpi-skeleton"></span></div></div>
+                    <div class="kpi-card"><div class="kpi-label">Narratives</div><div class="kpi-value accent" id="kpi-narratives"><span class="skeleton kpi-skeleton"></span></div></div>
                 </div>
                 <div class="overview-section-title">Detected Narratives</div>
                 <div class="narrative-grid" id="narrative-grid">
@@ -809,20 +818,46 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                         ${n.detection_count > 1 ? `<span>· <b>${n.detection_count}×</b> detected</span>` : ''}
                         <div class="grid-card-signals">${Object.keys(sc).map(k => `<span title="${k}">${SOURCE_ICONS[k] || '📌'}</span>`).join('')}</div>
                     </div>
+                    ${renderCardSparkline(n, i)}
                 </div>`;
             }).join('');
         }
 
         // === KPIs ===
-        function renderKPIs(data) {
+        function animateKPI(el, value) {
+            el.classList.add('animated');
+            const target = parseInt(value) || 0;
+            if (target === 0) { el.textContent = '0'; return; }
+            const duration = 600, steps = 30, inc = target / steps;
+            let current = 0, step = 0;
+            const timer = setInterval(() => {
+                step++;
+                current = step >= steps ? target : Math.round(inc * step);
+                el.textContent = current.toLocaleString();
+                if (step >= steps) clearInterval(timer);
+            }, duration / steps);
+        }
+        function dismissLoadingOverlay() {
+            const ol = document.getElementById('loading-overlay-init');
+            if (ol) { ol.classList.add('fade-out'); setTimeout(() => ol.remove(), 500); }
+        }
+        function renderKPIs(data, skipAnimation) {
             const s = data.signal_summary || {};
             reportGeneratedAt = data.generated_at;
-            document.getElementById('kpi-total').textContent = s.total_collected || '—';
-            document.getElementById('kpi-github').textContent = s.github_signals || '—';
-            document.getElementById('kpi-defi').textContent = s.defi_signals || '—';
-            document.getElementById('kpi-social').textContent = s.social_signals || '—';
-            document.getElementById('kpi-onchain').textContent = s.onchain_signals || '—';
-            document.getElementById('kpi-narratives').textContent = (data.narratives || []).length || '—';
+            const vals = {
+                'kpi-total': s.total_collected || 0,
+                'kpi-github': s.github_signals || 0,
+                'kpi-defi': s.defi_signals || 0,
+                'kpi-social': s.social_signals || 0,
+                'kpi-onchain': s.onchain_signals || 0,
+                'kpi-narratives': (data.narratives || []).length || 0,
+            };
+            Object.entries(vals).forEach(([id, val]) => {
+                const el = document.getElementById(id);
+                if (skipAnimation) { el.textContent = val.toLocaleString(); }
+                else { animateKPI(el, val); }
+            });
+            dismissLoadingOverlay();
             // Trend
             const narratives = data.narratives || [];
             let todayTotal = 0, yesterdayTotal = 0;
@@ -988,6 +1023,78 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                 </div>`).join('')}</div>`;
         }
 
+        // === SPARKLINES ===
+        function getSparklineColor(n) {
+            const dir = (n.direction || '').toLowerCase();
+            if (dir === 'accelerating') return '#00d18c';
+            if (dir === 'stabilizing' || dir === 'stable') return '#f5a623';
+            if (dir === 'declining' || dir === 'fading') return '#f87171';
+            return '#f5a623'; // EMERGING default
+        }
+
+        function renderCardSparkline(n, idx) {
+            const hist = n.confidence_history || [];
+            if (hist.length < 2) return '';
+            return `<canvas id="sparkline-${idx}" width="120" height="40" style="margin-top:8px;width:100%;height:40px"></canvas>`;
+        }
+
+        function createCardSparklines() {
+            if (typeof Chart === 'undefined') return;
+            currentNarratives.forEach((n, i) => {
+                const canvas = document.getElementById(`sparkline-${i}`);
+                if (!canvas) return;
+                const hist = n.confidence_history || [];
+                if (hist.length < 2) return;
+                const confMap = { HIGH: 3, MEDIUM: 2, LOW: 1 };
+                const vals = hist.map(h => confMap[h.confidence] || 1);
+                const color = getSparklineColor(n);
+                const ctx = canvas.getContext('2d');
+                const grad = ctx.createLinearGradient(0, 0, 0, 40);
+                grad.addColorStop(0, color + '33');
+                grad.addColorStop(1, 'rgba(0,0,0,0)');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: { labels: vals.map(() => ''), datasets: [{ data: vals, borderColor: color, backgroundColor: grad, fill: true, tension: 0.4, pointRadius: 0, borderWidth: 1.5 }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { enabled: false } }, scales: { x: { display: false }, y: { display: false, min: 0, max: 4 } }, animation: { duration: 600 } }
+                });
+            });
+        }
+
+        function renderDetailConfidenceChart(n) {
+            const hist = n.confidence_history || [];
+            if (hist.length < 2) return '';
+            return `<div class="trend-chart-wrap" style="margin-bottom:20px"><canvas id="detail-confidence-trend"></canvas><div class="chart-label">Confidence & Detection Over Pipeline Runs</div></div>`;
+        }
+
+        function createDetailConfidenceChart(n) {
+            if (typeof Chart === 'undefined') return;
+            const canvas = document.getElementById('detail-confidence-trend');
+            if (!canvas) return;
+            const hist = n.confidence_history || [];
+            if (hist.length < 2) return;
+            const confMap = { HIGH: 3, MEDIUM: 2, LOW: 1 };
+            const labels = hist.map((h, i) => {
+                try { const d = new Date(h.time); return (d.getMonth()+1) + '/' + d.getDate() + ' ' + d.getHours() + ':00'; }
+                catch(e) { return '#' + (i+1); }
+            });
+            const confVals = hist.map(h => confMap[h.confidence] || 1);
+            const color = getSparklineColor(n);
+            const ctx = canvas.getContext('2d');
+            const grad = ctx.createLinearGradient(0, 0, 0, 200);
+            grad.addColorStop(0, color + '22'); grad.addColorStop(1, 'rgba(0,0,0,0)');
+            if (chartInstances['detail-confidence-trend']) chartInstances['detail-confidence-trend'].destroy();
+            chartInstances['detail-confidence-trend'] = new Chart(ctx, {
+                type: 'line',
+                data: { labels, datasets: [{
+                    label: 'Confidence',
+                    data: confVals, borderColor: color, backgroundColor: grad, fill: true,
+                    tension: 0.35, pointRadius: 3, pointBackgroundColor: color, borderWidth: 2
+                }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ['', 'LOW', 'MEDIUM', 'HIGH'][c.parsed.y] || '' } } },
+                    scales: { x: { grid: { color: '#1e1e30' }, ticks: { color: '#5c5c74', font: { size: 9 }, maxTicksLimit: 8 } }, y: { grid: { color: '#1e1e30' }, min: 0, max: 4, ticks: { color: '#5c5c74', font: { size: 10 }, stepSize: 1, callback: v => ['', 'LOW', 'MED', 'HIGH', ''][v] || '' } } } }
+            });
+        }
+
         function toggleSignals(el) {
             const hidden = el.previousElementSibling;
             if (!hidden) return;
@@ -1132,10 +1239,25 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
 
         // === API ===
         async function loadReport() {
+            // Show cached data instantly if available
+            try {
+                const cached = localStorage.getItem('nr_cached_report');
+                if (cached) {
+                    const cData = JSON.parse(cached);
+                    if (cData.narratives && cData.narratives.length > 0) {
+                        currentNarratives = cData.narratives;
+                        renderKPIs(cData, true);
+                        renderSidebar(cData.narratives);
+                        renderOverviewGrid(cData.narratives);
+                        handleRoute();
+                    }
+                }
+            } catch(e) { /* ignore cache errors */ }
             try {
                 const resp = await fetch('/api/narratives');
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                 const data = await resp.json();
+                try { localStorage.setItem('nr_cached_report', JSON.stringify(data)); } catch(e) {}
                 if (data.narratives && data.narratives.length > 0) {
                     currentNarratives = data.narratives;
                     renderKPIs(data);
@@ -1144,10 +1266,12 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                     handleRoute();
                 } else {
                     document.getElementById('narrative-grid').innerHTML = '<div style="text-align:center;padding:48px;color:var(--text-muted)"><p>No narratives detected yet.</p><br><button class="btn" onclick="generateReport()">Generate Report</button></div>';
+                    dismissLoadingOverlay();
                 }
             } catch(e) {
                 if (typeof Sentry !== 'undefined') Sentry.captureException(e);
                 document.getElementById('narrative-grid').innerHTML = '<div style="text-align:center;padding:48px;color:var(--text-muted)"><p>Could not load data.</p><br><button class="btn" onclick="generateReport()">Generate Report</button></div>';
+                dismissLoadingOverlay();
             }
         }
 
