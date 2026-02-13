@@ -462,6 +462,20 @@
             .kpi-grid { grid-template-columns: repeat(2, 1fr); }
             .nav-badge { display: none; }
         }
+
+        /* === TABLET LAYOUT (768px - 1024px) === */
+        @media (min-width: 769px) and (max-width: 1024px) {
+            #narratives {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 16px;
+            }
+            .narrative-card { margin-bottom: 0; }
+            .hero { padding: 28px 20px 20px; }
+            .container { padding: 0 20px 20px; }
+            .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+            .about-columns { grid-template-columns: 1fr 1fr; }
+        }
     </style>
     <script src="https://browser.sentry-cdn.com/8.0.0/bundle.min.js" crossorigin="anonymous"></script>
     <script>
