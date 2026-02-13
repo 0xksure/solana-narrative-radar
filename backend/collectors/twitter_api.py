@@ -133,14 +133,26 @@ def _parse_tweet_result(result: dict) -> Optional[Dict]:
         return None
 
     legacy = result.get("legacy", {})
+    likes = legacy.get("favorite_count", 0)
+    retweets = legacy.get("retweet_count", 0)
+    replies = legacy.get("reply_count", 0)
+    quotes = legacy.get("quote_count", 0)
+    views = int(result.get("views", {}).get("count", 0) or 0)
+    bookmarks = legacy.get("bookmark_count", 0)
+    engagement_score = replies * 3 + retweets * 2 + likes
+
     return {
         "id": result["rest_id"],
         "text": text,
         "author": username,
         "url": f"https://x.com/{username}/status/{result['rest_id']}",
-        "likes": legacy.get("favorite_count", 0),
-        "retweets": legacy.get("retweet_count", 0),
-        "replies": legacy.get("reply_count", 0),
+        "likes": likes,
+        "retweets": retweets,
+        "replies": replies,
+        "quotes": quotes,
+        "views": views,
+        "bookmarks": bookmarks,
+        "engagement_score": engagement_score,
         "created_at": legacy.get("created_at", ""),
     }
 

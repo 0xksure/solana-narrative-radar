@@ -63,6 +63,9 @@ async def collect_kol_tweets() -> List[Dict]:
     reddit_signals = await _collect_reddit_signals()
     signals.extend(reddit_signals)
     
+    # Apply spam filter to twitter signals
+    signals = filter_spam(signals)
+    
     print(f"  → Social: {len(signals)} signals ({len(xbird_signals)} twitter, {len(ecosystem_signals)} ecosystem, {len(reddit_signals)} reddit)")
     return signals
 
@@ -92,8 +95,27 @@ async def _collect_via_xbird() -> List[Dict]:
                         "collected_at": datetime.utcnow().isoformat()
                     })
             
-            # Search queries
-            for query in ["solana narrative", "building on solana", "solana alpha"]:
+            # Search queries — engagement-filtered + protocol-specific + KOLs
+            search_queries = [
+                '"solana" min_faves:50',
+                '"building on solana" min_faves:20',
+                '"$SOL" min_faves:100',
+                '"jupiter solana" OR "jup airdrop" OR "@JupiterExchange" min_faves:20',
+                '"jito solana" OR "jito tips" min_faves:20',
+                '"pump.fun" OR "pumpfun" min_faves:30',
+                '"solana ai agent" OR "eliza solana" OR "ai16z" min_faves:20',
+                '"solana depin" OR "helium solana" min_faves:20',
+                '"solana rwa" OR "tokenized assets solana" min_faves:10',
+                '"solana staking" OR "liquid staking solana" min_faves:20',
+                '"solana" "just launched" min_faves:10',
+                '"solana" "alpha" min_faves:30',
+                '"solana" "narrative" min_faves:20',
+                '"solana" "bullish" min_faves:50',
+                "from:0xMert_ solana",
+                "from:aeyakovenko",
+                "from:rajgokal",
+            ]
+            for query in search_queries:
                 tweets = await search_tweets(query, 20)
                 for tweet in tweets:
                     signals.append({
@@ -399,16 +421,29 @@ def _parse_xbird_output(output: str) -> List[Dict]:
             continue
         
         # Author line
-        author_match = re.match(r'^@(\w+)\s*\(', line)
+        author_match = re.match(r'^@(\w+)\b', line)
         if author_match:
             if current_tweet and current_tweet.get("text"):
                 tweets.append(current_tweet)
-            current_tweet = {"author": author_match.group(1), "text": ""}
+            # Remainder after @handle becomes start of text
+            remainder = line[author_match.end():].strip()
+            # Strip optional "(Display Name):" prefix
+            remainder = re.sub(r'^\([^)]*\):?\s*', '', remainder)
+            current_tweet = {"author": author_match.group(1), "text": remainder}
+            # Check for inline engagement numbers
+            likes_match = re.search(r'(\d+)\s*likes?', remainder, re.I)
+            rt_match = re.search(r'(\d+)\s*(?:retweets?|RTs?)', remainder, re.I)
+            if likes_match:
+                current_tweet["likes"] = int(likes_match.group(1))
+            if rt_match:
+                current_tweet["retweets"] = int(rt_match.group(1))
             continue
         
         # Content line
         if current_tweet is not None:
             current_tweet["text"] = (current_tweet.get("text", "") + " " + line).strip()
+            if "author" not in current_tweet:
+                current_tweet["author"] = "unknown"
         else:
             current_tweet = {"text": line, "author": "unknown"}
         
@@ -424,6 +459,44 @@ def _parse_xbird_output(output: str) -> List[Dict]:
         tweets.append(current_tweet)
     
     return tweets
+
+
+def filter_spam(signals: List[Dict]) -> List[Dict]:
+    """Filter out bot/spam tweets from collected signals."""
+    seen_texts = set()
+    filtered = []
+    
+    for signal in signals:
+        content = signal.get("content", "")
+        
+        # Skip tweets shorter than 30 chars
+        if len(content.strip()) < 30:
+            continue
+        
+        # Skip tweets with more than 3 $TICKER mentions (shill bots)
+        ticker_mentions = re.findall(r'\$[A-Z]{2,10}', content)
+        if len(ticker_mentions) > 3:
+            continue
+        
+        # Skip scam pattern: "airdrop" + "claim" + URL
+        content_lower = content.lower()
+        if ("airdrop" in content_lower and "claim" in content_lower
+                and re.search(r'https?://', content)):
+            continue
+        
+        # Skip pure price callouts with no substance (e.g. "$SOL $123.45" and nothing else)
+        if re.match(r'^\s*\$[A-Z]{2,10}\s+\$?\d+[\d.,]*\s*$', content.strip()):
+            continue
+        
+        # Deduplicate near-identical content (normalize whitespace for comparison)
+        normalized = re.sub(r'\s+', ' ', content.strip().lower())[:200]
+        if normalized in seen_texts:
+            continue
+        seen_texts.add(normalized)
+        
+        filtered.append(signal)
+    
+    return filtered
 
 
 def _is_solana_related(text: str) -> bool:

@@ -12,16 +12,27 @@ import sys
 from datetime import datetime
 
 SEARCH_QUERIES = [
-    "solana defi",
-    "building on solana",
-    "solana narrative",
-    "solana ai agent",
-    "solana alpha",
-    "solana ecosystem",
-    "solana staking",
-    "solana meme coin",
-    "solana payments",
-    "solana rwa",
+    # Engagement-filtered general queries
+    '"solana" min_faves:50',
+    '"building on solana" min_faves:20',
+    '"$SOL" min_faves:100',
+    # Protocol-specific trending
+    '"jupiter solana" OR "jup airdrop" OR "@JupiterExchange" min_faves:20',
+    '"jito solana" OR "jito tips" min_faves:20',
+    '"pump.fun" OR "pumpfun" min_faves:30',
+    '"solana ai agent" OR "eliza solana" OR "ai16z" min_faves:20',
+    '"solana depin" OR "helium solana" min_faves:20',
+    '"solana rwa" OR "tokenized assets solana" min_faves:10',
+    '"solana staking" OR "liquid staking solana" min_faves:20',
+    # Emerging narrative detection
+    '"solana" "just launched" min_faves:10',
+    '"solana" "alpha" min_faves:30',
+    '"solana" "narrative" min_faves:20',
+    '"solana" "bullish" min_faves:50',
+    # KOL-specific
+    "from:0xMert_ solana",
+    "from:aeyakovenko",
+    "from:rajgokal",
 ]
 
 SOLANA_KEYWORDS = [
