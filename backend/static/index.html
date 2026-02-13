@@ -30,6 +30,17 @@
             font-size: 0.95em;
         }
         .meta-item span { color: #9945FF; font-weight: bold; }
+        .meta-item.last-updated { color: #67e8f9; font-size: 0.85em; }
+        
+        /* Filter bar */
+        .filter-bar {
+            display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;
+        }
+        .filter-bar label { color: #999; font-size: 0.9em; }
+        .filter-bar select {
+            background: #1a1a2e; color: #e0e0e0; border: 1px solid #333;
+            padding: 8px 12px; border-radius: 6px; font-size: 0.9em; cursor: pointer;
+        }
         
         /* Narrative cards with confidence-based visual hierarchy */
         .narrative-card {
@@ -74,8 +85,12 @@
         .signal-item a { color: #9945FF; text-decoration: none; }
         .signal-item a:hover { text-decoration: underline; }
         
-        .ideas-section { margin-top: 16px; }
         .ideas-title { color: #9945FF; font-size: 1.05em; margin-bottom: 8px; font-weight: bold; }
+        .ideas-section {
+            margin-top: 16px; padding: 16px; border-radius: 10px;
+            background: linear-gradient(135deg, #0d0d1a 0%, #111125 100%);
+            border: 1px solid #2a2a4a;
+        }
         .idea-card {
             background: #0a0a14; border: 1px solid #1a1a2e; border-radius: 8px;
             padding: 14px 18px; margin: 8px 0;
@@ -157,6 +172,15 @@
             <div class="meta-item">Loading...</div>
         </div>
         
+        <div class="filter-bar" id="filter-bar" style="display:none">
+            <label>Sort by:</label>
+            <select id="sort-select" onchange="applySortFilter()">
+                <option value="default">Default</option>
+                <option value="confidence">Confidence (high→low)</option>
+                <option value="direction">Direction (accelerating first)</option>
+            </select>
+        </div>
+        
         <div id="narratives">
             <div class="loading">🔍 Loading narratives...</div>
         </div>
@@ -177,6 +201,24 @@
 
     <script>
         let isGenerating = false;
+        let currentNarratives = [];
+        let reportGeneratedAt = null;
+        
+        // Live timestamp updater
+        setInterval(() => {
+            if (!reportGeneratedAt) return;
+            const el = document.getElementById('last-updated');
+            if (el) el.textContent = timeAgo(reportGeneratedAt);
+        }, 30000);
+        
+        function timeAgo(date) {
+            const mins = Math.floor((Date.now() - new Date(date).getTime()) / 60000);
+            if (mins < 1) return 'just now';
+            if (mins < 60) return `${mins}m ago`;
+            const hrs = Math.floor(mins / 60);
+            if (hrs < 24) return `${hrs}h ${mins % 60}m ago`;
+            return `${Math.floor(hrs / 24)}d ago`;
+        }
         
         function showError(msg) {
             const toast = document.getElementById('error-toast');
@@ -234,6 +276,7 @@
         function renderMeta(data) {
             const s = data.signal_summary || {};
             const genDate = data.generated_at ? new Date(data.generated_at).toLocaleString() : 'N/A';
+            reportGeneratedAt = data.generated_at;
             document.getElementById('meta-bar').innerHTML = `
                 <div class="meta-item">📊 Signals: <span>${s.total_collected || '?'}</span></div>
                 <div class="meta-item">🐙 GitHub: <span>${s.github_signals || '?'}</span></div>
@@ -242,11 +285,28 @@
                 <div class="meta-item">⛓️ On-chain: <span>${s.onchain_signals || '?'}</span></div>
                 <div class="meta-item">🔥 High-signal: <span>${s.high_score_signals || '?'}</span></div>
                 <div class="meta-item">📅 ${genDate}</div>
+                <div class="meta-item last-updated">🕐 Updated: <span id="last-updated">${data.generated_at ? timeAgo(data.generated_at) : 'N/A'}</span></div>
                 <button class="btn" onclick="generateReport()" ${isGenerating ? 'disabled' : ''}>🔄 Refresh</button>
             `;
         }
         
+        function applySortFilter() {
+            const sort = document.getElementById('sort-select').value;
+            let sorted = [...currentNarratives];
+            const confOrder = { high: 0, medium: 1, low: 2 };
+            const dirOrder = { accelerating: 0, emerging: 1, stabilizing: 2 };
+            if (sort === 'confidence') sorted.sort((a, b) => (confOrder[(a.confidence||'low').toLowerCase()] || 2) - (confOrder[(b.confidence||'low').toLowerCase()] || 2));
+            if (sort === 'direction') sorted.sort((a, b) => (dirOrder[(a.direction||'').toLowerCase()] ?? 9) - (dirOrder[(b.direction||'').toLowerCase()] ?? 9));
+            renderNarrativeCards(sorted);
+        }
+        
         function renderNarratives(narratives) {
+            currentNarratives = narratives;
+            document.getElementById('filter-bar').style.display = narratives.length ? 'flex' : 'none';
+            renderNarrativeCards(narratives);
+        }
+        
+        function renderNarrativeCards(narratives) {
             const html = narratives.map((n, i) => {
                 const conf = (n.confidence || 'low').toLowerCase();
                 return `
@@ -292,7 +352,21 @@
         }
         
         function linkify(text) {
-            return text.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+            return text.replace(/(https?:\/\/[^\s<]+)/g, (url) => {
+                let label = url;
+                try {
+                    const u = new URL(url);
+                    if (u.hostname === 'github.com') {
+                        const parts = u.pathname.split('/').filter(Boolean);
+                        if (parts.length >= 2) label = `${parts[0]}/${parts[1]}`;
+                        if (parts.length >= 4 && parts[2] === 'pull') label += ` #${parts[3]}`;
+                        else if (parts.length >= 4 && parts[2] === 'issues') label += ` #${parts[3]}`;
+                    } else {
+                        label = u.hostname.replace('www.', '') + (u.pathname.length > 20 ? u.pathname.slice(0, 20) + '…' : u.pathname);
+                    }
+                } catch(e) {}
+                return `<a href="${url}" target="_blank" rel="noopener" title="${url}">${label}</a>`;
+            });
         }
         
         loadReport();
