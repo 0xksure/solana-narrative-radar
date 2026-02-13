@@ -127,9 +127,32 @@
         .signal-item { 
             color: #999; font-size: 0.95em; padding: 6px 0;
             border-left: 2px solid #333; padding-left: 12px; margin: 6px 0;
+            display: flex; align-items: baseline; gap: 6px;
         }
         .signal-item a { color: #9945FF; text-decoration: none; }
         .signal-item a:hover { text-decoration: underline; }
+        .source-badge { font-size: 0.8em; opacity: 0.8; flex-shrink: 0; }
+        .show-all-toggle { color: #9945FF; cursor: pointer; font-size: 0.85em; margin-top: 4px; padding-left: 14px; }
+        .show-all-toggle:hover { text-decoration: underline; }
+        
+        /* Signal breakdown */
+        .signal-breakdown { color: #777; font-size: 0.85em; margin: 8px 0; }
+        
+        /* Velocity / sparkline */
+        .velocity-section { display: flex; align-items: center; gap: 12px; margin: 10px 0 6px; flex-wrap: wrap; }
+        .velocity-number { font-size: 1.3em; font-weight: bold; }
+        .velocity-number.accelerating { color: #4ade80; }
+        .velocity-number.emerging { color: #fb923c; }
+        .velocity-number.stabilizing { color: #a8a29e; }
+        .velocity-trend { font-size: 1.1em; }
+        .sparkline-container { display: inline-flex; align-items: end; gap: 2px; height: 28px; }
+        .sparkline-bar { width: 8px; border-radius: 2px 2px 0 0; min-height: 2px; transition: height 0.3s; }
+        .sparkline-bar.accelerating { background: #4ade80; }
+        .sparkline-bar.emerging { background: #fb923c; }
+        .sparkline-bar.stabilizing { background: #a8a29e; }
+        
+        /* Meta trend */
+        .meta-trend { color: #4ade80; font-size: 0.85em; margin-left: 4px; }
         
         /* Ideas section - enhanced */
         .ideas-title { color: #9945FF; font-size: 1.05em; margin-bottom: 4px; font-weight: bold; }
@@ -375,12 +398,32 @@
             }
         }
         
+        function computeDashboardTrend(narratives) {
+            if (!narratives || !narratives.length) return '';
+            let todayTotal = 0, yesterdayTotal = 0;
+            narratives.forEach(n => {
+                const dc = n.velocity && n.velocity.daily_counts;
+                if (!dc) return;
+                const dates = Object.keys(dc).sort();
+                if (dates.length >= 1) todayTotal += dc[dates[dates.length - 1]] || 0;
+                if (dates.length >= 2) yesterdayTotal += dc[dates[dates.length - 2]] || 0;
+            });
+            if (yesterdayTotal > 0 && todayTotal > 0) {
+                const pct = Math.round(((todayTotal - yesterdayTotal) / yesterdayTotal) * 100);
+                const sign = pct >= 0 ? '+' : '';
+                const color = pct >= 0 ? '#4ade80' : '#f87171';
+                return `<span class="meta-trend" style="color:${color}">📈 ${todayTotal} signals (${sign}${pct}% vs yesterday)</span>`;
+            }
+            return '';
+        }
+        
         function renderMeta(data) {
             const s = data.signal_summary || {};
             const genDate = data.generated_at ? new Date(data.generated_at).toLocaleString() : 'N/A';
             reportGeneratedAt = data.generated_at;
+            const trend = computeDashboardTrend(data.narratives);
             document.getElementById('meta-bar').innerHTML = `
-                <div class="meta-item">📊 Signals: <span>${s.total_collected || '?'}</span></div>
+                <div class="meta-item">📊 Signals: <span>${s.total_collected || '?'}</span>${trend}</div>
                 <div class="meta-item">🐙 GitHub: <span>${s.github_signals || '?'}</span></div>
                 <div class="meta-item">📈 DeFi: <span>${s.defi_signals || '?'}</span></div>
                 <div class="meta-item">🐦 Social: <span>${s.social_signals || '?'}</span></div>
@@ -409,9 +452,61 @@
             renderNarrativeCards(narratives);
         }
         
+        const SOURCE_ICONS = { github: '🐙', twitter: '🐦', defi: '📊', 'on-chain': '⛓️', onchain: '⛓️', reddit: '💬' };
+        
+        function renderSignal(s) {
+            if (typeof s === 'string') return `<div class="signal-item">${linkify(s)}</div>`;
+            const badge = s.source ? `<span class="source-badge">${SOURCE_ICONS[s.source.toLowerCase()] || '📌'}</span>` : '';
+            const text = s.url ? `<a href="${s.url}" target="_blank" rel="noopener">${s.text || shortUrl(s.url)}</a>` : (s.text || '');
+            return `<div class="signal-item">${badge}${text}</div>`;
+        }
+        
+        function renderSignalBreakdown(signals) {
+            if (!signals || !signals.length) return '';
+            const counts = {};
+            signals.forEach(s => {
+                if (typeof s === 'object' && s.source) {
+                    const src = s.source.toLowerCase();
+                    counts[src] = (counts[src] || 0) + 1;
+                }
+            });
+            const parts = Object.entries(counts).map(([k, v]) => `${SOURCE_ICONS[k] || '📌'} ${v} ${k}`);
+            if (!parts.length) return '';
+            return `<div class="signal-breakdown">📊 ${signals.length} signals: ${parts.join(' · ')}</div>`;
+        }
+        
+        function renderSparkline(velocity) {
+            if (!velocity || !velocity.daily_counts) return '';
+            const dc = velocity.daily_counts;
+            const dates = Object.keys(dc).sort().slice(-7);
+            if (!dates.length) return '';
+            const vals = dates.map(d => dc[d]);
+            const max = Math.max(...vals, 1);
+            const trend = (velocity.trend || 'emerging').toLowerCase();
+            const bars = vals.map(v => `<div class="sparkline-bar ${trend}" style="height:${Math.max(2, (v / max) * 26)}px"></div>`).join('');
+            return `<div class="sparkline-container">${bars}</div>`;
+        }
+        
+        function renderVelocity(n) {
+            const v = n.velocity;
+            if (!v) return '';
+            const trend = (v.trend || n.direction || 'emerging').toLowerCase();
+            const arrows = { accelerating: '↗️', emerging: '→', stabilizing: '↘️' };
+            return `
+                <div class="velocity-section">
+                    <span class="velocity-number ${trend}">${v.velocity != null ? v.velocity : ''}</span>
+                    <span class="velocity-trend">${arrows[trend] || '→'} ${trend}</span>
+                    ${renderSparkline(v)}
+                </div>`;
+        }
+        
         function renderNarrativeCards(narratives) {
             const html = narratives.map((n, i) => {
                 const conf = (n.confidence || 'low').toLowerCase();
+                const signals = n.supporting_signals || [];
+                const cardId = `signals-${i}`;
+                const visibleCount = 8;
+                const hasMore = signals.length > visibleCount;
                 return `
                 <div class="narrative-card confidence-${conf}">
                     <div class="narrative-header">
@@ -421,7 +516,9 @@
                             <span class="badge badge-${(n.direction || '').toLowerCase()}">${n.direction || ''}</span>
                         </div>
                     </div>
+                    ${renderVelocity(n)}
                     <p class="narrative-explanation">${n.explanation || ''}</p>
+                    ${renderSignalBreakdown(signals)}
                     
                     ${n.market_opportunity ? `
                         <div class="market-opportunity">
@@ -430,11 +527,11 @@
                         </div>
                     ` : ''}
                     
-                    ${n.supporting_signals ? `
-                        <div class="signals-list">
-                            ${n.supporting_signals.slice(0, 5).map(s => 
-                                `<div class="signal-item">${linkify(s)}</div>`
-                            ).join('')}
+                    ${signals.length ? `
+                        <div class="signals-list" id="${cardId}">
+                            ${signals.slice(0, visibleCount).map(s => renderSignal(s)).join('')}
+                            ${hasMore ? `<div class="signals-hidden" style="display:none">${signals.slice(visibleCount).map(s => renderSignal(s)).join('')}</div>
+                            <div class="show-all-toggle" onclick="toggleSignals(this, '${cardId}')">Show all ${signals.length} signals ▼</div>` : ''}
                         </div>
                     ` : ''}
                     
@@ -503,6 +600,14 @@
                 } catch(e) {}
                 return `<a href="${url}" target="_blank" rel="noopener" title="${url}">${label}</a>`;
             });
+        }
+        
+        function toggleSignals(el, cardId) {
+            const hidden = document.querySelector(`#${cardId} .signals-hidden`);
+            if (!hidden) return;
+            const showing = hidden.style.display !== 'none';
+            hidden.style.display = showing ? 'none' : 'block';
+            el.textContent = showing ? `Show all ▼` : `Show less ▲`;
         }
         
         loadReport();

@@ -71,6 +71,7 @@ async def _collect_via_xbird() -> List[Dict]:
                             "name": f"@{tweet.get('author', 'unknown')}: {tweet.get('text', '')[:80]}",
                             "content": tweet.get("text", "")[:500],
                             "author": tweet.get("author", ""),
+                            "url": tweet.get("url", ""),
                             "engagement": tweet.get("likes", 0) + tweet.get("retweets", 0),
                             "topics": _extract_topics(tweet.get("text", "")),
                             "collected_at": datetime.utcnow().isoformat()
@@ -90,6 +91,7 @@ async def _collect_via_xbird() -> List[Dict]:
                             "name": f"Search '{query}': {tweet.get('text', '')[:60]}",
                             "query": query,
                             "content": tweet.get("text", "")[:500],
+                            "url": tweet.get("url", ""),
                             "topics": _extract_topics(tweet.get("text", "")),
                             "collected_at": datetime.utcnow().isoformat()
                         })
@@ -133,6 +135,7 @@ async def _collect_via_nitter() -> List[Dict]:
                                     "name": f"@{kol}: {item['text'][:80]}",
                                     "content": item["text"][:500],
                                     "author": kol,
+                                    "url": f"https://x.com/{kol}",
                                     "topics": _extract_topics(item["text"]),
                                     "collected_at": datetime.utcnow().isoformat()
                                 })
@@ -167,6 +170,7 @@ async def _collect_via_syndication() -> List[Dict]:
                                 "name": f"@{kol}: {clean_text[:80]}",
                                 "content": clean_text[:500],
                                 "author": kol,
+                                "url": f"https://x.com/{kol}",
                                 "topics": _extract_topics(clean_text),
                                 "collected_at": datetime.utcnow().isoformat()
                             })
@@ -215,6 +219,7 @@ async def _collect_ecosystem_signals() -> List[Dict]:
                         "signal_type": "chain_stats",
                         "name": f"Solana TPS: {data.get('transactionCount', 'N/A')}",
                         "content": json.dumps(data),
+                        "url": "https://solscan.io",
                         "topics": ["infrastructure"],
                         "collected_at": datetime.utcnow().isoformat()
                     })
@@ -232,6 +237,7 @@ async def _collect_ecosystem_signals() -> List[Dict]:
                         "signal_type": "dex_stats",
                         "name": f"Jupiter daily volume: ${data.get('volumeInUSD', 0):,.0f}" if isinstance(data.get('volumeInUSD'), (int, float)) else "Jupiter stats",
                         "content": json.dumps(data)[:500],
+                        "url": "https://jup.ag",
                         "topics": ["defi", "trading"],
                         "collected_at": datetime.utcnow().isoformat()
                     })
@@ -251,6 +257,7 @@ async def _collect_ecosystem_signals() -> List[Dict]:
                             "signal_type": "ecosystem_project",
                             "name": p.get("name", "Unknown"),
                             "content": p.get("description", "")[:300],
+                            "url": p.get("website", p.get("url", "")),
                             "topics": [category] if category else ["other"],
                             "collected_at": datetime.utcnow().isoformat()
                         })
@@ -336,26 +343,56 @@ async def _collect_reddit_signals() -> List[Dict]:
 
 
 def _parse_xbird_output(output: str) -> List[Dict]:
-    """Parse xbird CLI output into structured tweets"""
+    """Parse xbird CLI output into structured tweets.
+    
+    xbird format:
+    @handle (Display Name):
+    Tweet text...
+    📅 date
+    🔗 https://x.com/...
+    ──────────
+    """
     tweets = []
     current_tweet = {}
     
     for line in output.strip().split("\n"):
         line = line.strip()
-        if not line:
+        
+        # Separator line — finalize current tweet
+        if line.startswith("─"):
             if current_tweet:
                 tweets.append(current_tweet)
                 current_tweet = {}
             continue
         
-        # Try to extract author from @mention pattern
-        author_match = re.match(r'^@(\w+)', line)
+        if not line:
+            continue
+        
+        # Tweet URL
+        url_match = re.match(r'🔗\s*(https?://\S+)', line)
+        if url_match:
+            current_tweet["url"] = url_match.group(1)
+            continue
+        
+        # Date line — skip
+        if line.startswith("📅"):
+            continue
+        
+        # Media thumbnail — skip
+        if line.startswith("🎬"):
+            continue
+        
+        # Author line
+        author_match = re.match(r'^@(\w+)\s*\(', line)
         if author_match:
-            if current_tweet:
+            if current_tweet and current_tweet.get("text"):
                 tweets.append(current_tweet)
-            current_tweet = {"author": author_match.group(1), "text": line}
-        elif current_tweet:
-            current_tweet["text"] = current_tweet.get("text", "") + " " + line
+            current_tweet = {"author": author_match.group(1), "text": ""}
+            continue
+        
+        # Content line
+        if current_tweet is not None:
+            current_tweet["text"] = (current_tweet.get("text", "") + " " + line).strip()
         else:
             current_tweet = {"text": line, "author": "unknown"}
         
@@ -367,7 +404,7 @@ def _parse_xbird_output(output: str) -> List[Dict]:
         if rt_match:
             current_tweet["retweets"] = int(rt_match.group(1))
     
-    if current_tweet:
+    if current_tweet and current_tweet.get("text"):
         tweets.append(current_tweet)
     
     return tweets
