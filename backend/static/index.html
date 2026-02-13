@@ -31,27 +31,36 @@
             --radius-sm: 6px;
             --radius-md: 10px;
             --radius-lg: 14px;
+            --sidebar-width: 280px;
+            --topnav-height: 56px;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
+        body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: var(--bg-primary); color: var(--text-primary); 
+            background: var(--bg-primary); color: var(--text-primary);
             line-height: 1.6; font-size: 15px;
             -webkit-font-smoothing: antialiased;
+            overflow: hidden; height: 100vh;
         }
 
-        /* === STICKY NAV === */
+        /* === TOP NAV === */
         .top-nav {
-            position: sticky; top: 0; z-index: 100;
-            background: rgba(12,12,20,0.92); backdrop-filter: blur(12px);
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            background: rgba(12,12,20,0.95); backdrop-filter: blur(12px);
             border-bottom: 1px solid var(--border);
-            padding: 0 24px; height: 56px;
+            padding: 0 20px; height: var(--topnav-height);
             display: flex; align-items: center; justify-content: space-between;
         }
+        .nav-left { display: flex; align-items: center; gap: 12px; }
+        .hamburger {
+            display: none; background: none; border: none; color: var(--text-primary);
+            font-size: 1.4rem; cursor: pointer; padding: 4px 8px; border-radius: var(--radius-sm);
+        }
+        .hamburger:hover { background: var(--accent-dim); }
         .nav-brand {
             display: flex; align-items: center; gap: 10px;
             font-weight: 700; font-size: 1.05rem; color: var(--text-primary);
-            text-decoration: none;
+            text-decoration: none; cursor: pointer;
         }
         .nav-brand .logo { font-size: 1.3rem; }
         .nav-brand .brand-text span { color: var(--accent); }
@@ -62,170 +71,148 @@
             font-weight: 500;
         }
         .nav-link:hover { color: var(--text-primary); background: var(--accent-dim); }
-        .nav-link.active { color: var(--accent); background: var(--accent-dim); }
         .nav-badge {
             display: inline-flex; align-items: center; gap: 6px;
             background: var(--success-dim); color: var(--success);
             padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;
         }
-        .nav-badge .pulse {
-            width: 6px; height: 6px; border-radius: 50%; background: var(--success);
-            animation: pulse 2s infinite;
-        }
+        .nav-badge .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--success); animation: pulse 2s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
-        /* === HERO SECTION === */
-        .hero {
-            padding: 32px 24px 24px;
-            max-width: 1280px; margin: 0 auto;
+        /* === LAYOUT === */
+        .app-layout {
+            display: flex; margin-top: var(--topnav-height); height: calc(100vh - var(--topnav-height));
         }
-        .hero-title {
-            font-size: 1.75rem; font-weight: 700; color: var(--text-primary);
-            margin-bottom: 4px;
-        }
-        .hero-subtitle {
-            color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 20px;
-        }
-        .hero-subtitle a { color: var(--accent); text-decoration: none; }
-        .hero-subtitle a:hover { text-decoration: underline; }
 
-        /* === KPI HERO METRICS (DeFiLlama style) === */
+        /* === SIDEBAR === */
+        .sidebar {
+            width: var(--sidebar-width); min-width: var(--sidebar-width);
+            background: var(--bg-surface); border-right: 1px solid var(--border);
+            display: flex; flex-direction: column; overflow: hidden;
+            transition: transform 0.25s ease;
+        }
+        .sidebar-header {
+            padding: 16px 16px 12px; border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .sidebar-header h2 { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted); }
+        .sidebar-count { font-size: 0.7rem; color: var(--text-muted); background: var(--bg-primary); padding: 2px 8px; border-radius: 10px; }
+        .sidebar-list { flex: 1; overflow-y: auto; padding: 8px; }
+        .sidebar-list::-webkit-scrollbar { width: 4px; }
+        .sidebar-list::-webkit-scrollbar-track { background: transparent; }
+        .sidebar-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+        .sidebar-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 12px; border-radius: var(--radius-sm); cursor: pointer;
+            transition: all 0.15s; margin-bottom: 2px; text-decoration: none;
+            border: 1px solid transparent;
+        }
+        .sidebar-item:hover { background: var(--bg-surface-hover); border-color: var(--border); }
+        .sidebar-item.active { background: var(--accent-dim); border-color: var(--accent); }
+        .sidebar-item-info { flex: 1; min-width: 0; }
+        .sidebar-item-name {
+            font-size: 0.8125rem; font-weight: 600; color: var(--text-primary);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .sidebar-item.active .sidebar-item-name { color: var(--accent); }
+        .sidebar-item-meta { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+        .sidebar-badge {
+            font-size: 0.625rem; font-weight: 700; padding: 1px 6px; border-radius: 8px;
+            text-transform: uppercase; letter-spacing: 0.3px;
+        }
+        .sidebar-badge.high { background: var(--success-dim); color: var(--success); }
+        .sidebar-badge.medium { background: var(--warning-dim); color: var(--warning); }
+        .sidebar-badge.low { background: var(--info-dim); color: var(--info); }
+        .sidebar-trend { font-size: 0.75rem; }
+        .sidebar-trend.accelerating { color: var(--success); }
+        .sidebar-trend.emerging { color: var(--warning); }
+        .sidebar-trend.stabilizing { color: var(--text-muted); }
+
+        .sidebar-home {
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 12px; margin: 0 8px 4px; border-radius: var(--radius-sm);
+            cursor: pointer; transition: all 0.15s; font-size: 0.8125rem;
+            font-weight: 600; color: var(--text-secondary); border: 1px solid transparent;
+        }
+        .sidebar-home:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
+        .sidebar-home.active { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
+
+        /* === MAIN CONTENT === */
+        .main-content {
+            flex: 1; overflow-y: auto; padding: 0;
+        }
+        .main-content::-webkit-scrollbar { width: 6px; }
+        .main-content::-webkit-scrollbar-track { background: transparent; }
+        .main-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+        /* === OVERVIEW (HOME) === */
+        .overview { padding: 32px; max-width: 1100px; margin: 0 auto; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .overview-hero { margin-bottom: 28px; }
+        .overview-hero h1 { font-size: 1.75rem; font-weight: 700; margin-bottom: 4px; }
+        .overview-hero p { color: var(--text-secondary); font-size: 0.9rem; }
+        .overview-hero p a { color: var(--accent); text-decoration: none; }
+
         .kpi-grid {
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-            gap: 12px; margin-bottom: 8px;
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px; margin-bottom: 28px;
         }
         .kpi-card {
             background: var(--bg-surface); border: 1px solid var(--border);
-            border-radius: var(--radius-md); padding: 16px 18px;
-            transition: border-color 0.2s;
+            border-radius: var(--radius-md); padding: 16px 18px; transition: border-color 0.2s;
         }
         .kpi-card:hover { border-color: var(--border-hover); }
-        .kpi-label {
-            font-size: 0.6875rem; font-weight: 600; text-transform: uppercase;
-            letter-spacing: 0.6px; color: var(--text-muted); margin-bottom: 4px;
-        }
-        .kpi-value {
-            font-size: 1.75rem; font-weight: 700; color: var(--text-primary);
-            line-height: 1.2;
-        }
+        .kpi-label { font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted); margin-bottom: 4px; }
+        .kpi-value { font-size: 1.75rem; font-weight: 700; color: var(--text-primary); line-height: 1.2; }
         .kpi-value.accent { color: var(--accent); }
         .kpi-value.success { color: var(--success); }
-        .kpi-value.warning { color: var(--warning); }
-        .kpi-change {
-            font-size: 0.75rem; font-weight: 500; margin-top: 2px;
-        }
+        .kpi-change { font-size: 0.75rem; font-weight: 500; margin-top: 2px; }
         .kpi-change.up { color: var(--success); }
         .kpi-change.down { color: var(--danger); }
 
-        /* === TRUST BAR === */
-        .trust-bar {
-            display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-            padding: 12px 0; margin-bottom: 4px;
-        }
-        .trust-item {
-            display: flex; align-items: center; gap: 5px;
-            font-size: 0.75rem; color: var(--text-muted);
-        }
-        .trust-item .dot {
-            width: 5px; height: 5px; border-radius: 50%;
-        }
-        .trust-item .dot.green { background: var(--success); }
-        .trust-item .dot.yellow { background: var(--warning); }
+        .overview-section-title { font-size: 0.875rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
 
-        /* === CONTAINER === */
-        .container { max-width: 1280px; margin: 0 auto; padding: 0 24px 24px; }
-
-        /* === SECTION HEADER === */
-        .section-header {
-            display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border);
+        .narrative-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 14px;
         }
-        .section-header h2 {
-            font-size: 1rem; font-weight: 600; color: var(--text-primary);
-        }
-        .section-header p { font-size: 0.8125rem; color: var(--text-muted); }
-
-        /* === FILTER BAR === */
-        .filter-bar {
-            display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center;
-        }
-        .filter-bar label { color: var(--text-muted); font-size: 0.8125rem; font-weight: 500; }
-        .filter-bar select {
-            background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border);
-            padding: 7px 12px; border-radius: var(--radius-sm); font-size: 0.8125rem;
-            font-family: inherit; cursor: pointer; transition: border-color 0.15s;
-        }
-        .filter-bar select:hover { border-color: var(--border-hover); }
-
-        /* === ABOUT SECTION === */
-        .about-section {
+        .narrative-grid-card {
             background: var(--bg-surface); border: 1px solid var(--border);
-            border-radius: var(--radius-md); margin-bottom: 20px; overflow: hidden;
-        }
-        .about-toggle {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 14px 18px; cursor: pointer; user-select: none;
-            transition: background 0.15s;
-        }
-        .about-toggle:hover { background: var(--accent-dim); }
-        .about-toggle h2 { font-size: 0.875rem; font-weight: 600; color: var(--text-secondary); }
-        .about-toggle .chevron { color: var(--accent); font-size: 0.9rem; transition: transform 0.2s; }
-        .about-section.collapsed .chevron { transform: rotate(-90deg); }
-        .about-section.collapsed .about-body { display: none; }
-        .about-body { padding: 0 18px 18px; }
-        .about-body p { color: var(--text-secondary); font-size: 0.875rem; margin-top: 10px; line-height: 1.7; }
-        .about-body strong { color: var(--text-primary); }
-        .about-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
-        .about-col { background: var(--bg-primary); border-radius: var(--radius-sm); padding: 14px; border: 1px solid var(--border); }
-        .about-col h3 { font-size: 0.8125rem; font-weight: 600; color: var(--success); margin-bottom: 6px; }
-        .about-col ul { list-style: none; }
-        .about-col li { color: var(--text-secondary); font-size: 0.8125rem; padding: 2px 0; }
-        .about-col li::before { content: '→ '; color: var(--accent); }
-        @media (max-width: 768px) { .about-columns { grid-template-columns: 1fr; } }
-
-        /* === MOBILE TOUCH TARGETS (min 44x44px) === */
-        @media (max-width: 768px) {
-            .filter-bar select { min-height: 44px; padding: 10px 14px; font-size: 0.875rem; }
-            .about-toggle { min-height: 48px; padding: 14px 18px; }
-            .references a { display: inline-block; min-height: 44px; line-height: 44px; padding: 0 8px; }
-            .signal-item a { display: inline-block; min-height: 44px; line-height: 44px; padding: 0 4px; }
-            .badge { min-height: 32px; padding: 8px 14px; }
-            button, [role="button"], .btn { min-height: 44px; min-width: 44px; }
-            .signal-item { padding: 10px 0 10px 12px; }
-        }
-
-        /* === NARRATIVE CARDS === */
-        .narrative-card {
-            background: var(--bg-surface); border: 1px solid var(--border);
-            border-radius: var(--radius-lg); padding: 22px;
-            margin-bottom: 16px; transition: all 0.2s;
-            border-left: 3px solid var(--border);
+            border-radius: var(--radius-md); padding: 18px; cursor: pointer;
+            transition: all 0.2s; border-left: 3px solid var(--border);
             animation: fadeInUp 0.4s ease-out both;
         }
-        .narrative-card:nth-child(1) { animation-delay: 0s; }
-        .narrative-card:nth-child(2) { animation-delay: 0.06s; }
-        .narrative-card:nth-child(3) { animation-delay: 0.12s; }
-        .narrative-card:nth-child(4) { animation-delay: 0.18s; }
-        .narrative-card:nth-child(5) { animation-delay: 0.24s; }
-        .narrative-card:nth-child(6) { animation-delay: 0.30s; }
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(12px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .narrative-card:hover { border-color: var(--border-hover); }
-        .narrative-card.confidence-high { border-left-color: var(--success); }
-        .narrative-card.confidence-medium { border-left-color: var(--warning); }
-        .narrative-card.confidence-low { border-left-color: var(--info); opacity: 0.9; }
+        .narrative-grid-card:nth-child(1) { animation-delay: 0s; }
+        .narrative-grid-card:nth-child(2) { animation-delay: 0.05s; }
+        .narrative-grid-card:nth-child(3) { animation-delay: 0.1s; }
+        .narrative-grid-card:nth-child(4) { animation-delay: 0.15s; }
+        .narrative-grid-card:nth-child(5) { animation-delay: 0.2s; }
+        .narrative-grid-card:nth-child(6) { animation-delay: 0.25s; }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        .narrative-grid-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 4px 20px rgba(153,69,255,0.1); }
+        .narrative-grid-card.confidence-high { border-left-color: var(--success); }
+        .narrative-grid-card.confidence-medium { border-left-color: var(--warning); }
+        .narrative-grid-card.confidence-low { border-left-color: var(--info); }
+        .grid-card-header { display: flex; justify-content: space-between; align-items: start; gap: 8px; margin-bottom: 8px; }
+        .grid-card-name { font-size: 1rem; font-weight: 700; color: var(--text-primary); }
+        .grid-card-badges { display: flex; gap: 4px; flex-shrink: 0; }
+        .grid-card-desc { color: var(--text-secondary); font-size: 0.8125rem; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .grid-card-footer { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 0.75rem; color: var(--text-muted); }
+        .grid-card-signals { display: flex; gap: 4px; }
 
-        .narrative-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
-        .narrative-name { font-size: 1.2rem; font-weight: 700; color: var(--text-primary); }
-        .confidence-high .narrative-name { font-size: 1.35rem; }
-
-        .badges { display: flex; gap: 5px; flex-wrap: wrap; }
-        .badge {
-            padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;
-            display: inline-flex; align-items: center;
+        /* === DETAIL VIEW === */
+        .detail-view { padding: 32px; max-width: 900px; margin: 0 auto; animation: fadeIn 0.3s ease; }
+        .detail-back {
+            display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted);
+            font-size: 0.8125rem; cursor: pointer; margin-bottom: 20px; padding: 6px 12px;
+            border-radius: var(--radius-sm); transition: all 0.15s; font-weight: 500;
         }
+        .detail-back:hover { color: var(--accent); background: var(--accent-dim); }
+        .detail-header { margin-bottom: 24px; }
+        .detail-title { font-size: 1.75rem; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
+        .detail-badges { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+        .badge { padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; display: inline-flex; align-items: center; }
         .badge-high { background: var(--success-dim); color: var(--success); }
         .badge-medium { background: var(--warning-dim); color: var(--warning); }
         .badge-low { background: var(--info-dim); color: var(--info); }
@@ -233,61 +220,10 @@
         .badge-emerging { background: var(--info-dim); color: var(--info); }
         .badge-stabilizing { background: rgba(136,136,160,0.12); color: var(--text-secondary); }
 
-        .narrative-explanation { color: var(--text-secondary); margin: 10px 0; font-size: 0.9375rem; line-height: 1.7; }
-
-        /* Charts */
-        .charts-row {
-            display: grid; grid-template-columns: 1fr 140px; gap: 14px;
-            align-items: start; margin: 14px 0;
-        }
-        .charts-row .trend-chart-wrap { min-width: 0; }
-        .charts-row .trend-chart-wrap canvas { width: 100% !important; height: 180px !important; }
-        .charts-row .donut-chart-wrap { width: 140px; text-align: center; }
-        .charts-row .donut-chart-wrap canvas { width: 140px !important; height: 140px !important; }
-        .chart-label { color: var(--text-muted); font-size: 0.6875rem; text-align: center; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
-        @media (max-width: 600px) {
-            .charts-row { grid-template-columns: 1fr; }
-            .charts-row .donut-chart-wrap { width: 140px; margin: 0 auto; }
-        }
-
-        /* Market opportunity */
-        .market-opportunity {
-            background: var(--success-dim); border: 1px solid rgba(0,209,140,0.2);
-            border-left: 3px solid var(--success);
-            border-radius: var(--radius-sm); padding: 12px 14px; margin: 12px 0;
-        }
-        .market-opportunity .label { color: var(--success); font-weight: 600; font-size: 0.8125rem; margin-bottom: 3px; }
-        .market-opportunity .content { color: var(--text-secondary); font-size: 0.875rem; line-height: 1.6; }
-
-        /* References */
-        .references { margin: 10px 0; }
-        .references .label { color: var(--text-muted); font-size: 0.75rem; margin-bottom: 4px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
-        .references a {
-            color: var(--accent); text-decoration: none; font-size: 0.8125rem;
-            margin-right: 12px; display: inline-block; margin-bottom: 4px;
-            transition: color 0.15s;
-        }
-        .references a:hover { color: var(--accent-hover); text-decoration: underline; }
-
-        .signals-list { margin: 10px 0; }
-        .signal-item {
-            color: var(--text-secondary); font-size: 0.875rem; padding: 5px 0;
-            border-left: 2px solid var(--border); padding-left: 12px; margin: 5px 0;
-            transition: border-color 0.15s;
-        }
-        .signal-item:hover { border-left-color: var(--accent); }
-        .signal-item .signal-main { display: flex; align-items: baseline; gap: 6px; }
-        .signal-item a { color: var(--accent); text-decoration: none; transition: color 0.15s; }
-        .signal-item a:hover { color: var(--accent-hover); text-decoration: underline; }
-        .signal-comment { color: var(--text-muted); font-size: 0.8125rem; font-style: italic; margin-top: 2px; padding-left: 2px; }
-        .source-badge { font-size: 0.75rem; opacity: 0.8; flex-shrink: 0; }
-        .show-all-toggle { color: var(--accent); cursor: pointer; font-size: 0.8125rem; margin-top: 4px; padding-left: 14px; font-weight: 500; }
-        .show-all-toggle:hover { text-decoration: underline; }
-
-        .signal-breakdown { color: var(--text-muted); font-size: 0.8125rem; margin: 8px 0; }
+        .detail-explanation { color: var(--text-secondary); font-size: 0.9375rem; line-height: 1.7; margin-bottom: 20px; }
 
         /* Velocity */
-        .velocity-section { display: flex; align-items: center; gap: 12px; margin: 8px 0 6px; flex-wrap: wrap; }
+        .velocity-section { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
         .velocity-number { font-size: 1.2rem; font-weight: 700; }
         .velocity-number.accelerating { color: var(--success); }
         .velocity-number.emerging { color: var(--warning); }
@@ -299,122 +235,42 @@
         .sparkline-bar.emerging { background: var(--warning); }
         .sparkline-bar.stabilizing { background: var(--text-muted); }
 
-        .meta-trend { color: var(--success); font-size: 0.8125rem; margin-left: 4px; }
+        /* Market opportunity */
+        .market-opportunity {
+            background: var(--success-dim); border: 1px solid rgba(0,209,140,0.2);
+            border-left: 3px solid var(--success);
+            border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 20px;
+        }
+        .market-opportunity .label { color: var(--success); font-weight: 600; font-size: 0.8125rem; margin-bottom: 4px; }
+        .market-opportunity .content { color: var(--text-secondary); font-size: 0.875rem; line-height: 1.6; }
 
-        /* Key metrics */
-        .key-metrics-row { display: flex; gap: 10px; flex-wrap: wrap; margin: 10px 0; }
-        .key-metric-card {
-            background: var(--bg-primary); border: 1px solid var(--border);
-            border-radius: var(--radius-sm); padding: 10px 14px; flex: 1; min-width: 130px;
+        /* Charts */
+        .charts-row {
+            display: grid; grid-template-columns: 1fr 160px; gap: 16px;
+            align-items: start; margin-bottom: 20px;
         }
-        .key-metric-label { color: var(--text-muted); font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
-        .key-metric-value { color: var(--text-primary); font-size: 1.3rem; font-weight: 700; margin: 2px 0; }
-        .key-metric-context { color: var(--text-muted); font-size: 0.75rem; }
+        .trend-chart-wrap { min-width: 0; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px; }
+        .trend-chart-wrap canvas { width: 100% !important; height: 200px !important; }
+        .donut-chart-wrap { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px; text-align: center; }
+        .donut-chart-wrap canvas { width: 128px !important; height: 128px !important; margin: 0 auto; }
+        .chart-label { color: var(--text-muted); font-size: 0.6875rem; text-align: center; margin-top: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
 
-        /* Ideas */
-        .ideas-section {
-            margin-top: 16px; padding: 18px; border-radius: var(--radius-md);
-            background: var(--bg-primary); border: 1px solid var(--border);
+        /* Signals */
+        .detail-section { margin-bottom: 24px; }
+        .detail-section-title { font-size: 0.875rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+        .signal-item {
+            color: var(--text-secondary); font-size: 0.875rem; padding: 8px 0 8px 12px;
+            border-left: 2px solid var(--border); margin: 6px 0; transition: border-color 0.15s;
         }
-        .ideas-title { color: var(--accent); font-size: 0.9375rem; font-weight: 700; margin-bottom: 3px; }
-        .ideas-subtitle { color: var(--text-muted); font-size: 0.8125rem; margin-bottom: 10px; }
-        .idea-card {
-            background: var(--bg-surface); border: 1px solid var(--border);
-            border-radius: var(--radius-sm); padding: 14px 18px; margin: 8px 0;
-            transition: border-color 0.15s;
-        }
-        .idea-card:hover { border-color: var(--border-hover); }
-        .idea-name { color: var(--success); font-weight: 700; font-size: 0.9375rem; }
-        .idea-desc { color: var(--text-secondary); font-size: 0.875rem; margin-top: 5px; line-height: 1.6; }
-        .idea-market-analysis { color: var(--text-secondary); font-size: 0.8125rem; margin-top: 8px; padding: 8px 12px; background: var(--bg-primary); border-radius: var(--radius-sm); border-left: 2px solid var(--info); }
-        .idea-revenue { color: var(--warning); font-size: 0.8125rem; margin-top: 5px; }
-        .idea-refs { color: var(--text-muted); font-size: 0.8125rem; margin-top: 5px; }
-        .idea-refs a { color: var(--accent); text-decoration: none; }
-        .idea-refs a:hover { text-decoration: underline; }
-        .idea-meta { color: var(--text-muted); font-size: 0.8125rem; margin-top: 5px; }
-
-        /* === SKELETON LOADING === */
-        .skeleton {
-            background: linear-gradient(90deg, var(--bg-surface) 25%, var(--bg-elevated) 50%, var(--bg-surface) 75%);
-            background-size: 200% 100%;
-            animation: shimmer 1.5s infinite;
-            border-radius: var(--radius-sm);
-        }
-        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-        .skeleton-card {
-            background: var(--bg-surface); border: 1px solid var(--border);
-            border-radius: var(--radius-lg); padding: 22px; margin-bottom: 16px;
-        }
-        .skeleton-line { height: 14px; margin-bottom: 10px; border-radius: 4px; }
-        .skeleton-line.w60 { width: 60%; }
-        .skeleton-line.w80 { width: 80%; }
-        .skeleton-line.w40 { width: 40%; }
-        .skeleton-line.h24 { height: 24px; }
-        .skeleton-chart { height: 160px; border-radius: var(--radius-sm); margin-top: 12px; }
-
-        /* Loading overlay */
-        .loading-overlay {
-            position: fixed; inset: 0; background: rgba(12,12,20,0.88);
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 1000; gap: 16px; backdrop-filter: blur(4px);
-        }
-        .loading-overlay .spinner {
-            width: 40px; height: 40px; border: 3px solid var(--border);
-            border-top-color: var(--accent); border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
-        .loading-overlay p { color: var(--text-secondary); font-size: 0.9375rem; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* Error toast */
-        .error-toast {
-            position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-            background: #2d1015; color: var(--danger); padding: 12px 20px; border-radius: var(--radius-md);
-            font-size: 0.875rem; z-index: 1001; display: flex; align-items: center; gap: 12px;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.5); max-width: 90%; border: 1px solid rgba(248,113,113,0.2);
-        }
-        .error-toast button {
-            background: var(--danger); color: white; border: none; padding: 5px 14px;
-            border-radius: var(--radius-sm); cursor: pointer; font-size: 0.8125rem; font-family: inherit;
-            font-weight: 500; white-space: nowrap; transition: opacity 0.15s;
-        }
-        .error-toast button:hover { opacity: 0.85; }
-
-        .btn {
-            background: var(--accent); color: white; border: none; padding: 8px 20px;
-            border-radius: var(--radius-sm); cursor: pointer; font-size: 0.8125rem;
-            font-family: inherit; font-weight: 600; transition: all 0.15s;
-            min-height: 36px; min-width: 36px;
-        }
-        .btn:hover { background: var(--accent-hover); transform: translateY(-1px); }
-        .btn:disabled { background: var(--bg-elevated); color: var(--text-muted); cursor: not-allowed; transform: none; }
-        .btn:active { transform: translateY(0); }
-        .btn-sm { padding: 5px 12px; font-size: 0.75rem; min-height: 28px; }
-        .btn-ghost {
-            background: transparent; border: 1px solid var(--border); color: var(--text-secondary);
-        }
-        .btn-ghost:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
-
-        /* === FOOTER === */
-        footer {
-            text-align: center; padding: 28px 24px; color: var(--text-muted);
-            font-size: 0.8125rem; border-top: 1px solid var(--border); margin-top: 32px;
-            max-width: 1280px; margin-left: auto; margin-right: auto;
-        }
-        footer a { color: var(--accent); text-decoration: none; transition: color 0.15s; }
-        footer a:hover { color: var(--accent-hover); text-decoration: underline; }
-        .footer-links { margin-top: 10px; display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; }
-
-        /* === TVL Mini Charts === */
-        .tvl-mini-chart-wrap {
-            display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin-left: 8px;
-        }
-        .tvl-mini-chart-wrap canvas { border-radius: 4px; }
-        .tvl-summary { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; white-space: nowrap; }
-        .tvl-summary.up { color: var(--success); }
-        .tvl-summary.down { color: var(--danger); }
-
-        /* === Signal Metadata Row === */
+        .signal-item:hover { border-left-color: var(--accent); }
+        .signal-item .signal-main { display: flex; align-items: baseline; gap: 6px; }
+        .signal-item a { color: var(--accent); text-decoration: none; transition: color 0.15s; }
+        .signal-item a:hover { color: var(--accent-hover); text-decoration: underline; }
+        .signal-comment { color: var(--text-muted); font-size: 0.8125rem; font-style: italic; margin-top: 2px; padding-left: 2px; }
+        .source-badge { font-size: 0.75rem; opacity: 0.8; flex-shrink: 0; }
+        .show-all-toggle { color: var(--accent); cursor: pointer; font-size: 0.8125rem; margin-top: 6px; padding-left: 14px; font-weight: 500; }
+        .show-all-toggle:hover { text-decoration: underline; }
+        .signal-breakdown { color: var(--text-muted); font-size: 0.8125rem; margin-bottom: 8px; }
         .signal-meta-row {
             display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
             margin-top: 4px; padding-left: 2px; font-size: 0.75rem; color: var(--text-muted);
@@ -427,7 +283,11 @@
         .signal-meta-row .meta-badge.active { border-color: var(--success); color: var(--success); }
         .signal-meta-row .meta-badge.kol { border-color: #1d9bf0; color: #1d9bf0; }
 
-        /* === Narrative TVL Summary === */
+        /* TVL */
+        .tvl-mini-chart-wrap { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin-left: 8px; }
+        .tvl-summary { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; white-space: nowrap; }
+        .tvl-summary.up { color: var(--success); }
+        .tvl-summary.down { color: var(--danger); }
         .narrative-tvl-summary {
             display: inline-flex; align-items: center; gap: 6px;
             background: var(--accent-dim); border-radius: 20px;
@@ -436,7 +296,36 @@
         .narrative-tvl-summary.up { background: var(--success-dim); color: var(--success); }
         .narrative-tvl-summary.down { background: rgba(248,113,113,0.12); color: var(--danger); }
 
-        /* === Idea Trend Callout === */
+        /* Key metrics */
+        .key-metrics-row { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
+        .key-metric-card {
+            background: var(--bg-primary); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); padding: 10px 14px; flex: 1; min-width: 130px;
+        }
+        .key-metric-label { color: var(--text-muted); font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+        .key-metric-value { color: var(--text-primary); font-size: 1.3rem; font-weight: 700; margin: 2px 0; }
+        .key-metric-context { color: var(--text-muted); font-size: 0.75rem; }
+
+        /* Ideas */
+        .ideas-section {
+            padding: 20px; border-radius: var(--radius-md);
+            background: var(--bg-surface); border: 1px solid var(--border); margin-bottom: 20px;
+        }
+        .ideas-title { color: var(--accent); font-size: 1rem; font-weight: 700; margin-bottom: 4px; }
+        .ideas-subtitle { color: var(--text-muted); font-size: 0.8125rem; margin-bottom: 12px; }
+        .idea-card {
+            background: var(--bg-primary); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); padding: 14px 18px; margin: 8px 0; transition: border-color 0.15s;
+        }
+        .idea-card:hover { border-color: var(--border-hover); }
+        .idea-name { color: var(--success); font-weight: 700; font-size: 0.9375rem; }
+        .idea-desc { color: var(--text-secondary); font-size: 0.875rem; margin-top: 5px; line-height: 1.6; }
+        .idea-market-analysis { color: var(--text-secondary); font-size: 0.8125rem; margin-top: 8px; padding: 8px 12px; background: var(--bg-surface); border-radius: var(--radius-sm); border-left: 2px solid var(--info); }
+        .idea-revenue { color: var(--warning); font-size: 0.8125rem; margin-top: 5px; }
+        .idea-refs { color: var(--text-muted); font-size: 0.8125rem; margin-top: 5px; }
+        .idea-refs a { color: var(--accent); text-decoration: none; }
+        .idea-refs a:hover { text-decoration: underline; }
+        .idea-meta { color: var(--text-muted); font-size: 0.8125rem; margin-top: 5px; }
         .idea-why-now {
             border-left: 3px solid var(--success); background: var(--success-dim);
             padding: 8px 12px; border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
@@ -444,38 +333,102 @@
         }
         .idea-why-now .prefix { color: var(--success); font-weight: 600; }
 
+        /* References */
+        .references { margin: 12px 0; }
+        .references .label { color: var(--text-muted); font-size: 0.75rem; margin-bottom: 4px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+        .references a { color: var(--accent); text-decoration: none; font-size: 0.8125rem; margin-right: 12px; display: inline-block; margin-bottom: 4px; }
+        .references a:hover { color: var(--accent-hover); text-decoration: underline; }
+
+        /* Nav arrows */
+        .detail-nav {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 20px 0; margin-top: 16px; border-top: 1px solid var(--border);
+        }
+        .detail-nav-btn {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 10px 18px; border-radius: var(--radius-sm); cursor: pointer;
+            background: var(--bg-surface); border: 1px solid var(--border);
+            color: var(--text-secondary); font-size: 0.8125rem; font-weight: 500;
+            transition: all 0.15s; font-family: inherit;
+        }
+        .detail-nav-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+        .detail-nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        .detail-nav-btn:disabled:hover { border-color: var(--border); color: var(--text-muted); background: var(--bg-surface); }
+        .detail-nav-name { max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* Loading */
+        .loading-overlay {
+            position: fixed; inset: 0; background: rgba(12,12,20,0.88);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 1000; gap: 16px; backdrop-filter: blur(4px);
+        }
+        .loading-overlay .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+        .loading-overlay p { color: var(--text-secondary); font-size: 0.9375rem; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .error-toast {
+            position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+            background: #2d1015; color: var(--danger); padding: 12px 20px; border-radius: var(--radius-md);
+            font-size: 0.875rem; z-index: 1001; display: flex; align-items: center; gap: 12px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.5); max-width: 90%; border: 1px solid rgba(248,113,113,0.2);
+        }
+        .error-toast button {
+            background: var(--danger); color: white; border: none; padding: 5px 14px;
+            border-radius: var(--radius-sm); cursor: pointer; font-size: 0.8125rem; font-family: inherit; font-weight: 500;
+        }
+
+        /* Skeleton */
+        .skeleton { background: linear-gradient(90deg, var(--bg-surface) 25%, var(--bg-elevated) 50%, var(--bg-surface) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: var(--radius-sm); }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        .skeleton-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px; margin-bottom: 16px; }
+        .skeleton-line { height: 14px; margin-bottom: 10px; border-radius: 4px; }
+        .skeleton-line.w60 { width: 60%; } .skeleton-line.w80 { width: 80%; } .skeleton-line.w40 { width: 40%; } .skeleton-line.h24 { height: 24px; }
+        .skeleton-chart { height: 160px; border-radius: var(--radius-sm); margin-top: 12px; }
+
+        /* Mobile overlay */
+        .sidebar-overlay {
+            display: none; position: fixed; inset: 0; z-index: 149;
+            background: rgba(0,0,0,0.5); backdrop-filter: blur(2px);
+        }
+        .sidebar-overlay.visible { display: block; }
+
         /* === MOBILE === */
         @media (max-width: 768px) {
-            .top-nav { padding: 0 16px; }
-            .nav-links { gap: 2px; }
-            .nav-link { padding: 4px 8px; font-size: 0.75rem; }
-            .hero { padding: 20px 16px 16px; }
-            .hero-title { font-size: 1.4rem; }
-            .container { padding: 0 16px 16px; }
+            .hamburger { display: block; }
+            .sidebar {
+                position: fixed; left: 0; top: var(--topnav-height); bottom: 0;
+                z-index: 150; transform: translateX(-100%);
+            }
+            .sidebar.open { transform: translateX(0); }
+            .nav-links .nav-link { display: none; }
+            .overview { padding: 20px 16px; }
+            .detail-view { padding: 20px 16px; }
             .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
             .kpi-value { font-size: 1.4rem; }
-            .narrative-card { padding: 16px; }
-            .narrative-name { font-size: 1.05rem; }
-            .confidence-high .narrative-name { font-size: 1.15rem; }
+            .narrative-grid { grid-template-columns: 1fr; }
+            .charts-row { grid-template-columns: 1fr; }
+            .donut-chart-wrap { width: 160px; margin: 0 auto; }
         }
         @media (max-width: 480px) {
-            .kpi-grid { grid-template-columns: repeat(2, 1fr); }
             .nav-badge { display: none; }
         }
 
-        /* === TABLET LAYOUT (768px - 1024px) === */
-        @media (min-width: 769px) and (max-width: 1024px) {
-            #narratives {
-                display: grid;
-                grid-template-columns: repeat(2, 1fr);
-                gap: 16px;
-            }
-            .narrative-card { margin-bottom: 0; }
-            .hero { padding: 28px 20px 20px; }
-            .container { padding: 0 20px 20px; }
-            .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
-            .about-columns { grid-template-columns: 1fr 1fr; }
+        /* Footer inside main */
+        .main-footer {
+            text-align: center; padding: 28px 24px; color: var(--text-muted);
+            font-size: 0.8125rem; border-top: 1px solid var(--border); margin-top: 32px;
         }
+        .main-footer a { color: var(--accent); text-decoration: none; }
+        .main-footer a:hover { text-decoration: underline; }
+        .footer-links { margin-top: 10px; display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; }
+
+        .btn {
+            background: var(--accent); color: white; border: none; padding: 8px 20px;
+            border-radius: var(--radius-sm); cursor: pointer; font-size: 0.8125rem;
+            font-family: inherit; font-weight: 600; transition: all 0.15s;
+        }
+        .btn:hover { background: var(--accent-hover); }
+        .btn:disabled { background: var(--bg-elevated); color: var(--text-muted); cursor: not-allowed; }
+        .btn-sm { padding: 5px 12px; font-size: 0.75rem; }
     </style>
     <script src="https://browser.sentry-cdn.com/8.0.0/bundle.min.js" crossorigin="anonymous"></script>
     <script>
@@ -485,150 +438,70 @@
     </script>
 </head>
 <body>
-    <!-- Sticky Navigation -->
     <nav class="top-nav">
-        <a href="/" class="nav-brand">
-            <span class="logo">📡</span>
-            <span class="brand-text">Solana <span>Radar</span></span>
-        </a>
+        <div class="nav-left">
+            <button class="hamburger" onclick="toggleSidebar()" aria-label="Toggle menu">☰</button>
+            <a class="nav-brand" onclick="navigate('')">
+                <span class="logo">📡</span>
+                <span class="brand-text">Solana <span>Radar</span></span>
+            </a>
+        </div>
         <div class="nav-links">
-            <a href="#narratives-section" class="nav-link active">Narratives</a>
             <a href="https://github.com/0xksure/solana-narrative-radar#readme" target="_blank" class="nav-link">Methodology</a>
             <a href="https://github.com/0xksure/solana-narrative-radar" target="_blank" class="nav-link">GitHub</a>
             <span class="nav-badge"><span class="pulse"></span> Live</span>
         </div>
     </nav>
 
-    <!-- Hero Section with KPIs -->
-    <div class="hero">
-        <h1 class="hero-title">Narrative Radar</h1>
-        <p class="hero-subtitle">AI-powered detection of emerging Solana narratives · <a href="https://github.com/0xksure/solana-narrative-radar#readme">How it works →</a></p>
-
-        <!-- KPI Grid -->
-        <div class="kpi-grid" id="kpi-grid">
-            <div class="kpi-card"><div class="kpi-label">Total Signals</div><div class="kpi-value" id="kpi-total">—</div><div class="kpi-change" id="kpi-total-change"></div></div>
-            <div class="kpi-card"><div class="kpi-label">GitHub</div><div class="kpi-value" id="kpi-github">—</div></div>
-            <div class="kpi-card"><div class="kpi-label">DeFi</div><div class="kpi-value" id="kpi-defi">—</div></div>
-            <div class="kpi-card"><div class="kpi-label">Social</div><div class="kpi-value" id="kpi-social">—</div></div>
-            <div class="kpi-card"><div class="kpi-label">On-chain</div><div class="kpi-value" id="kpi-onchain">—</div></div>
-            <div class="kpi-card"><div class="kpi-label">Narratives</div><div class="kpi-value accent" id="kpi-narratives">—</div></div>
-        </div>
-
-        <!-- Trust bar -->
-        <div class="trust-bar" id="trust-bar">
-            <div class="trust-item"><span class="dot green"></span> Data sources: GitHub, DeFiLlama, Reddit, Twitter, On-chain</div>
-            <div class="trust-item" id="last-updated-trust">Updated: —</div>
-            <div class="trust-item">Auto-refreshes every 4h</div>
-        </div>
-    </div>
-
-    <div class="container">
-        <!-- About Section (collapsed by default) -->
-        <div class="about-section collapsed" id="about-section">
-            <div class="about-toggle" onclick="toggleAbout()">
-                <h2>ℹ️ How to Read This Dashboard</h2>
-                <span class="chevron">▼</span>
+    <div class="app-layout">
+        <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2>Narratives</h2>
+                <span class="sidebar-count" id="sidebar-count">0</span>
             </div>
-            <div class="about-body">
-                <p>
-                    <strong>Solana Narrative Radar</strong> is an autonomous AI agent that continuously monitors 
-                    <strong>4+ data sources</strong> — GitHub repositories, DeFiLlama DeFi metrics, social media (Reddit, Twitter), 
-                    and on-chain activity — to identify emerging trends and product opportunities in the Solana ecosystem.
-                </p>
-                <div class="about-columns">
-                    <div class="about-col">
-                        <h3>📊 Reading Narratives</h3>
-                        <ul>
-                            <li><strong>Narrative</strong> = a trend or theme gaining traction</li>
-                            <li><strong>Confidence</strong> = how strongly supported by data (High / Medium / Low)</li>
-                            <li><strong>Direction</strong> = momentum — Accelerating, Emerging, or Stabilizing</li>
-                            <li><strong>Supporting Signals</strong> = the raw evidence behind the narrative</li>
-                        </ul>
-                    </div>
-                    <div class="about-col">
-                        <h3>📈 Signal Types</h3>
-                        <ul>
-                            <li><strong>GitHub</strong> = new repos, PRs, stars in Solana ecosystem</li>
-                            <li><strong>DeFi</strong> = TVL changes, new protocols, yield shifts</li>
-                            <li><strong>Social</strong> = Reddit posts, Twitter mentions, sentiment</li>
-                            <li><strong>On-chain</strong> = transaction patterns, program deployments</li>
-                        </ul>
-                    </div>
+            <div class="sidebar-home active" onclick="navigate('')" id="sidebar-home">📊 Overview</div>
+            <div class="sidebar-list" id="sidebar-list"></div>
+        </aside>
+        <main class="main-content" id="main-content">
+            <div class="overview" id="overview-view">
+                <div class="overview-hero">
+                    <h1>Narrative Radar</h1>
+                    <p>AI-powered detection of emerging Solana narratives · <a href="https://github.com/0xksure/solana-narrative-radar#readme">How it works →</a></p>
                 </div>
+                <div class="kpi-grid" id="kpi-grid">
+                    <div class="kpi-card"><div class="kpi-label">Total Signals</div><div class="kpi-value" id="kpi-total">—</div><div class="kpi-change" id="kpi-total-change"></div></div>
+                    <div class="kpi-card"><div class="kpi-label">GitHub</div><div class="kpi-value" id="kpi-github">—</div></div>
+                    <div class="kpi-card"><div class="kpi-label">DeFi</div><div class="kpi-value" id="kpi-defi">—</div></div>
+                    <div class="kpi-card"><div class="kpi-label">Social</div><div class="kpi-value" id="kpi-social">—</div></div>
+                    <div class="kpi-card"><div class="kpi-label">On-chain</div><div class="kpi-value" id="kpi-onchain">—</div></div>
+                    <div class="kpi-card"><div class="kpi-label">Narratives</div><div class="kpi-value accent" id="kpi-narratives">—</div></div>
+                </div>
+                <div class="overview-section-title">Detected Narratives</div>
+                <div class="narrative-grid" id="narrative-grid">
+                    <div class="skeleton-card"><div class="skeleton skeleton-line h24 w60"></div><div class="skeleton skeleton-line w80"></div><div class="skeleton skeleton-line w40"></div></div>
+                    <div class="skeleton-card"><div class="skeleton skeleton-line h24 w60"></div><div class="skeleton skeleton-line w80"></div><div class="skeleton skeleton-line w40"></div></div>
+                    <div class="skeleton-card"><div class="skeleton skeleton-line h24 w60"></div><div class="skeleton skeleton-line w80"></div><div class="skeleton skeleton-line w40"></div></div>
+                </div>
+                <footer class="main-footer">
+                    <p>Autonomous AI Agent · Monitors GitHub, DeFiLlama, Reddit & Twitter</p>
+                    <div class="footer-links">
+                        <a href="https://github.com/0xksure/solana-narrative-radar" target="_blank">GitHub</a>
+                        <a href="https://github.com/0xksure/solana-narrative-radar#readme" target="_blank">Methodology</a>
+                        <a href="https://defillama.com/" target="_blank">DeFiLlama</a>
+                    </div>
+                </footer>
             </div>
-        </div>
-
-        <!-- Filter bar -->
-        <div class="filter-bar" id="filter-bar" style="display:none">
-            <label>Sort:</label>
-            <select id="sort-select" onchange="applySortFilter()">
-                <option value="default">Default</option>
-                <option value="confidence">Confidence</option>
-                <option value="direction">Direction</option>
-            </select>
-            <div style="flex:1"></div>
-        </div>
-
-        <!-- Section header -->
-        <div class="section-header" id="narratives-header" style="display:none">
-            <div>
-                <h2 id="narratives-section">Detected Narratives</h2>
-                <p>AI-identified trends from real-time multi-source signals</p>
-            </div>
-        </div>
-
-        <!-- Narratives container -->
-        <div id="narratives">
-            <!-- Skeleton loading -->
-            <div class="skeleton-card">
-                <div class="skeleton skeleton-line h24 w60"></div>
-                <div class="skeleton skeleton-line w80"></div>
-                <div class="skeleton skeleton-line w40"></div>
-                <div class="skeleton skeleton-chart"></div>
-            </div>
-            <div class="skeleton-card">
-                <div class="skeleton skeleton-line h24 w60"></div>
-                <div class="skeleton skeleton-line w80"></div>
-                <div class="skeleton skeleton-line w40"></div>
-                <div class="skeleton skeleton-chart"></div>
-            </div>
-            <div class="skeleton-card">
-                <div class="skeleton skeleton-line h24 w60"></div>
-                <div class="skeleton skeleton-line w80"></div>
-                <div class="skeleton skeleton-line w40"></div>
-            </div>
-        </div>
+            <div class="detail-view" id="detail-view" style="display:none"></div>
+        </main>
     </div>
 
     <div id="loading-overlay" style="display:none" class="loading-overlay">
         <div class="spinner"></div>
         <p>Generating narrative report…</p>
-        <p style="color:var(--text-muted);font-size:0.8125rem">Collecting signals from GitHub, DeFiLlama, Reddit & more</p>
     </div>
-
     <div id="error-toast" style="display:none" class="error-toast"></div>
 
-    <footer>
-        <p>Autonomous AI Agent · Monitors GitHub, DeFiLlama, Reddit & Twitter</p>
-        <div class="footer-links">
-            <a href="https://github.com/0xksure/solana-narrative-radar" target="_blank">GitHub</a>
-            <a href="https://github.com/0xksure/solana-narrative-radar#readme" target="_blank">Methodology</a>
-            <a href="https://defillama.com/" target="_blank" rel="noopener">DeFiLlama</a>
-            <a href="https://github.com/solana-labs" target="_blank" rel="noopener">Solana Labs</a>
-        </div>
-    </footer>
-
-    <script>
-        // Analytics
-        function trackEvent(event, props = {}) {
-            fetch('/api/analytics', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({event, properties: {...props, url: location.href, referrer: document.referrer}})
-            }).catch(() => {});
-        }
-        trackEvent('page_view', { screen_width: screen.width, screen_height: screen.height });
-    </script>
     <script>
         if (typeof Chart !== 'undefined') {
             Chart.defaults.color = '#5c5c74';
@@ -636,89 +509,196 @@
             Chart.defaults.font.family = "'Inter', sans-serif";
         }
 
-        let isGenerating = false;
         let currentNarratives = [];
         let reportGeneratedAt = null;
         let chartInstances = {};
+        let isGenerating = false;
 
-        function toggleAbout() { document.getElementById('about-section').classList.toggle('collapsed'); trackEvent('about_toggled'); }
+        const SOURCE_ICONS = { github: '🐙', twitter: '🐦', defi: '📊', 'on-chain': '⛓️', onchain: '⛓️', reddit: '💬', defillama: '📊', jupiter: '🪐' };
+        const SOURCE_COLORS = { github: '#00d18c', twitter: '#1d9bf0', defillama: '#9945FF', defi: '#9945FF', reddit: '#ff4500', 'on-chain': '#14F195', onchain: '#14F195', jupiter: '#f5a623' };
+        const KNOWN_KOLS = ['solana','aaboronin','rajgokal','armaboreh','0xmert_','taborvuk','cburniske','lightcrypto'];
+        const TREND_ARROWS = { accelerating: '↗', emerging: '→', stabilizing: '↘' };
 
-        setInterval(() => {
-            if (!reportGeneratedAt) return;
-            const el = document.getElementById('last-updated-trust');
-            if (el) el.innerHTML = `<span class="dot green"></span> Updated: ${timeAgo(reportGeneratedAt)}`;
-        }, 30000);
-
-        function timeAgo(date) {
-            const mins = Math.floor((Date.now() - new Date(date).getTime()) / 60000);
-            if (mins < 1) return 'just now';
-            if (mins < 60) return `${mins}m ago`;
-            const hrs = Math.floor(mins / 60);
-            if (hrs < 24) return `${hrs}h ${mins % 60}m ago`;
-            return `${Math.floor(hrs / 24)}d ago`;
+        // === ROUTING ===
+        function navigate(hash) {
+            window.location.hash = hash;
         }
 
-        function showError(msg) {
-            const toast = document.getElementById('error-toast');
-            toast.innerHTML = `⚠️ ${msg} <button onclick="hideError(); generateReport()">Retry</button>`;
-            toast.style.display = 'flex';
-            setTimeout(hideError, 8000);
-        }
-        function hideError() { document.getElementById('error-toast').style.display = 'none'; }
-
-        async function loadReport() {
-            try {
-                const resp = await fetch('/api/narratives');
-                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-                const data = await resp.json();
-                if (data.narratives && data.narratives.length > 0) {
-                    renderKPIs(data);
-                    renderNarratives(data.narratives);
-                } else {
-                    document.getElementById('narratives').innerHTML =
-                        '<div style="text-align:center;padding:48px;color:var(--text-muted)"><p>No narratives detected yet.</p><br><button class="btn" onclick="generateReport()">Generate Report</button></div>';
+        function handleRoute() {
+            const hash = window.location.hash.slice(1);
+            const match = hash.match(/^narrative-(\d+)$/);
+            if (match && currentNarratives.length > 0) {
+                const idx = parseInt(match[1]);
+                if (idx >= 0 && idx < currentNarratives.length) {
+                    showDetail(idx);
+                    return;
                 }
-            } catch (e) {
-                if (typeof Sentry !== 'undefined') Sentry.captureException(e);
-                document.getElementById('narratives').innerHTML =
-                    '<div style="text-align:center;padding:48px;color:var(--text-muted)"><p>Could not load data.</p><br><button class="btn" onclick="generateReport()">Generate Report</button></div>';
             }
+            showOverview();
         }
 
-        async function generateReport() {
-            if (isGenerating) return;
-            trackEvent('refresh_clicked');
-            isGenerating = true;
-            document.getElementById('loading-overlay').style.display = 'flex';
-            document.querySelectorAll('.btn').forEach(b => b.disabled = true);
-            try {
-                const resp = await fetch('/api/generate', { method: 'POST' });
-                if (!resp.ok) throw new Error(`Server error (${resp.status})`);
-                const data = await resp.json();
-                renderKPIs(data);
-                renderNarratives(data.narratives || []);
-            } catch (e) {
-                if (typeof Sentry !== 'undefined') Sentry.captureException(e);
-                showError(`Failed to generate: ${e.message}`);
-            } finally {
-                document.getElementById('loading-overlay').style.display = 'none';
-                document.querySelectorAll('.btn').forEach(b => b.disabled = false);
-                isGenerating = false;
-            }
+        window.addEventListener('hashchange', handleRoute);
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('sidebar-overlay').classList.toggle('visible');
+        }
+        function closeSidebar() {
+            document.getElementById('sidebar').classList.remove('open');
+            document.getElementById('sidebar-overlay').classList.remove('visible');
         }
 
+        // === OVERVIEW ===
+        function showOverview() {
+            document.getElementById('overview-view').style.display = '';
+            document.getElementById('detail-view').style.display = 'none';
+            document.getElementById('main-content').scrollTop = 0;
+            updateSidebarActive(-1);
+            closeSidebar();
+        }
+
+        // === DETAIL ===
+        function showDetail(idx) {
+            const n = currentNarratives[idx];
+            if (!n) return;
+            document.getElementById('overview-view').style.display = 'none';
+            const dv = document.getElementById('detail-view');
+            dv.style.display = '';
+            document.getElementById('main-content').scrollTop = 0;
+            updateSidebarActive(idx);
+            closeSidebar();
+
+            // Destroy old charts
+            Object.keys(chartInstances).forEach(k => { chartInstances[k].destroy(); delete chartInstances[k]; });
+
+            const conf = (n.confidence || 'low').toLowerCase();
+            const dir = (n.direction || '').toLowerCase();
+            const trend = ((n.velocity && n.velocity.trend) || dir || 'emerging').toLowerCase();
+            const signals = n.supporting_signals || [];
+            const hasDC = n.velocity && n.velocity.daily_counts && Object.keys(n.velocity.daily_counts).length > 0;
+            const sourceCounts = getSourceCounts(signals);
+            const hasSC = Object.keys(sourceCounts).length > 0;
+            const prev = idx > 0 ? currentNarratives[idx - 1] : null;
+            const next = idx < currentNarratives.length - 1 ? currentNarratives[idx + 1] : null;
+
+            dv.innerHTML = `
+                <div class="detail-back" onclick="navigate('')">← Back to Overview</div>
+                <div class="detail-header">
+                    <div class="detail-title">${esc(n.name)}</div>
+                    <div class="detail-badges">
+                        <span class="badge badge-${conf}">${n.confidence}</span>
+                        <span class="badge badge-${dir}">${n.direction || ''}</span>
+                        ${renderNarrativeTVLSummary(signals)}
+                    </div>
+                </div>
+                ${renderVelocity(n)}
+                <p class="detail-explanation">${esc(n.explanation || '')}</p>
+                ${n.market_opportunity ? `<div class="market-opportunity"><div class="label">💎 Market Opportunity</div><div class="content">${esc(n.market_opportunity)}</div></div>` : ''}
+                ${hasDC || hasSC ? `<div class="charts-row">
+                    <div class="trend-chart-wrap"${!hasDC ? ' style="display:none"' : ''}><canvas id="detail-trend"></canvas><div class="chart-label">Signal Trend (7d)</div></div>
+                    <div class="donut-chart-wrap"${!hasSC ? ' style="display:none"' : ''}><canvas id="detail-donut" width="128" height="128"></canvas><div class="chart-label">Sources</div></div>
+                </div>` : ''}
+                ${renderSignalBreakdown(signals)}
+                ${signals.length ? `<div class="detail-section">
+                    <div class="detail-section-title">Supporting Signals (${signals.length})</div>
+                    <div id="detail-signals">
+                        ${signals.slice(0, 8).map((s, si) => renderSignal(s, si)).join('')}
+                        ${signals.length > 8 ? `<div class="signals-hidden" style="display:none">${signals.slice(8).map((s, si) => renderSignal(s, 8 + si)).join('')}</div>
+                        <div class="show-all-toggle" onclick="toggleSignals(this)">Show all ${signals.length} signals ▼</div>` : ''}
+                    </div>
+                </div>` : ''}
+                ${n.ideas && n.ideas.length ? `<div class="ideas-section">
+                    <div class="ideas-title">💡 Build Ideas</div>
+                    <div class="ideas-subtitle">Product opportunities from AI analysis</div>
+                    ${n.ideas.map(renderIdea).join('')}
+                </div>` : ''}
+                ${n.references && n.references.length ? `<div class="references">
+                    <div class="label">References</div>
+                    ${n.references.map(r => { const url = typeof r === 'string' ? r : r.url; const label = (typeof r === 'object' && r.title) ? r.title : shortUrl(url); return `<a href="${url}" target="_blank">${label}</a>`; }).join('')}
+                </div>` : ''}
+                <div class="detail-nav">
+                    <button class="detail-nav-btn" ${!prev ? 'disabled' : `onclick="navigate('narrative-${idx-1}')"`}>
+                        ← <span class="detail-nav-name">${prev ? esc(prev.name) : ''}</span>
+                    </button>
+                    <button class="detail-nav-btn" ${!next ? 'disabled' : `onclick="navigate('narrative-${idx+1}')"`}>
+                        <span class="detail-nav-name">${next ? esc(next.name) : ''}</span> →
+                    </button>
+                </div>
+                <footer class="main-footer"><p>Autonomous AI Agent · Monitors GitHub, DeFiLlama, Reddit & Twitter</p></footer>
+            `;
+
+            requestAnimationFrame(() => {
+                if (hasDC) createTrendChart('detail-trend', n.velocity.daily_counts, trend);
+                if (hasSC) createDonutChart('detail-donut', sourceCounts);
+                createTVLMiniCharts();
+            });
+        }
+
+        function updateSidebarActive(idx) {
+            document.querySelectorAll('.sidebar-item').forEach((el, i) => el.classList.toggle('active', i === idx));
+            document.getElementById('sidebar-home').classList.toggle('active', idx === -1);
+        }
+
+        // === SIDEBAR ===
+        function renderSidebar(narratives) {
+            document.getElementById('sidebar-count').textContent = narratives.length;
+            const list = document.getElementById('sidebar-list');
+            list.innerHTML = narratives.map((n, i) => {
+                const conf = (n.confidence || 'low').toLowerCase();
+                const trend = ((n.velocity && n.velocity.trend) || n.direction || 'emerging').toLowerCase();
+                return `<div class="sidebar-item" onclick="navigate('narrative-${i}')">
+                    <div class="sidebar-item-info">
+                        <div class="sidebar-item-name" title="${esc(n.name)}">${esc(n.name)}</div>
+                        <div class="sidebar-item-meta">
+                            <span class="sidebar-badge ${conf}">${conf}</span>
+                            <span class="sidebar-trend ${trend}">${TREND_ARROWS[trend] || '→'} ${trend}</span>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        // === GRID CARDS ===
+        function renderOverviewGrid(narratives) {
+            const grid = document.getElementById('narrative-grid');
+            if (!narratives.length) {
+                grid.innerHTML = '<div style="text-align:center;padding:48px;color:var(--text-muted)"><p>No narratives detected yet.</p><br><button class="btn" onclick="generateReport()">Generate Report</button></div>';
+                return;
+            }
+            grid.innerHTML = narratives.map((n, i) => {
+                const conf = (n.confidence || 'low').toLowerCase();
+                const signals = n.supporting_signals || [];
+                const sc = getSourceCounts(signals);
+                const trend = ((n.velocity && n.velocity.trend) || n.direction || 'emerging').toLowerCase();
+                return `<div class="narrative-grid-card confidence-${conf}" onclick="navigate('narrative-${i}')">
+                    <div class="grid-card-header">
+                        <div class="grid-card-name">${esc(n.name)}</div>
+                        <div class="grid-card-badges">
+                            <span class="badge badge-${conf}" style="font-size:0.65rem;padding:2px 8px">${n.confidence}</span>
+                        </div>
+                    </div>
+                    <div class="grid-card-desc">${esc(n.explanation || '')}</div>
+                    <div class="grid-card-footer">
+                        <span class="sidebar-trend ${trend}" style="font-size:0.75rem">${TREND_ARROWS[trend] || '→'} ${trend}</span>
+                        <span>·</span>
+                        <span>${signals.length} signals</span>
+                        <div class="grid-card-signals">${Object.keys(sc).map(k => `<span title="${k}">${SOURCE_ICONS[k] || '📌'}</span>`).join('')}</div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        // === KPIs ===
         function renderKPIs(data) {
             const s = data.signal_summary || {};
             reportGeneratedAt = data.generated_at;
-
             document.getElementById('kpi-total').textContent = s.total_collected || '—';
             document.getElementById('kpi-github').textContent = s.github_signals || '—';
             document.getElementById('kpi-defi').textContent = s.defi_signals || '—';
             document.getElementById('kpi-social').textContent = s.social_signals || '—';
             document.getElementById('kpi-onchain').textContent = s.onchain_signals || '—';
             document.getElementById('kpi-narratives').textContent = (data.narratives || []).length || '—';
-
-            // Trend calculation
+            // Trend
             const narratives = data.narratives || [];
             let todayTotal = 0, yesterdayTotal = 0;
             narratives.forEach(n => {
@@ -734,36 +714,16 @@
                 changeEl.className = `kpi-change ${pct >= 0 ? 'up' : 'down'}`;
                 changeEl.textContent = `${pct >= 0 ? '+' : ''}${pct}% vs yesterday`;
             }
-
-            // Update trust bar
-            if (data.generated_at) {
-                document.getElementById('last-updated-trust').innerHTML =
-                    `<span class="dot green"></span> Updated: ${timeAgo(data.generated_at)}`;
-            }
         }
 
-        function applySortFilter() {
-            const sort = document.getElementById('sort-select').value;
-            trackEvent('filter_changed', { sort });
-            let sorted = [...currentNarratives];
-            const confOrder = { high: 0, medium: 1, low: 2 };
-            const dirOrder = { accelerating: 0, emerging: 1, stabilizing: 2 };
-            if (sort === 'confidence') sorted.sort((a, b) => (confOrder[(a.confidence||'low').toLowerCase()] || 2) - (confOrder[(b.confidence||'low').toLowerCase()] || 2));
-            if (sort === 'direction') sorted.sort((a, b) => (dirOrder[(a.direction||'').toLowerCase()] ?? 9) - (dirOrder[(b.direction||'').toLowerCase()] ?? 9));
-            renderNarrativeCards(sorted);
+        // === HELPERS ===
+        function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+        function getSourceCounts(signals) {
+            const c = {};
+            (signals || []).forEach(s => { if (typeof s === 'object' && s.source) c[s.source.toLowerCase()] = (c[s.source.toLowerCase()] || 0) + 1; });
+            return c;
         }
-
-        function renderNarratives(narratives) {
-            currentNarratives = narratives;
-            document.getElementById('filter-bar').style.display = narratives.length ? 'flex' : 'none';
-            document.getElementById('narratives-header').style.display = narratives.length ? 'flex' : 'none';
-            renderNarrativeCards(narratives);
-        }
-
-        const SOURCE_ICONS = { github: '🐙', twitter: '🐦', defi: '📊', 'on-chain': '⛓️', onchain: '⛓️', reddit: '💬', defillama: '📊' };
-        const SOURCE_COLORS = { github: '#00d18c', twitter: '#1d9bf0', defillama: '#9945FF', defi: '#9945FF', reddit: '#ff4500', 'on-chain': '#14F195', onchain: '#14F195' };
-
-        const KNOWN_KOLS = ['solana','aaboronin','rajgokal','armaboreh','0xmert_','taborvuk','cburniske','lightcrypto','deaborfi_nader','solblaze_org','jupiterexchange','marginfi','heaborlius'];
 
         function formatTVL(val) {
             if (val >= 1e9) return '$' + (val / 1e9).toFixed(1) + 'B';
@@ -772,60 +732,48 @@
             return '$' + val.toFixed(0);
         }
 
-        function renderSignalMetaRow(s, idx) {
-            const parts = [];
-            // GitHub badges
-            if (s.stars != null || s.forks != null) {
-                let gh = [];
-                if (s.stars != null) gh.push(`⭐ ${s.stars}`);
-                if (s.forks != null) gh.push(`🍴 ${s.forks}`);
-                if (s.created_at) {
-                    const days = Math.floor((Date.now() - new Date(s.created_at).getTime()) / 86400000);
-                    gh.push(`📅 Created ${days < 7 ? days + 'd ago' : days < 30 ? Math.floor(days/7) + 'w ago' : Math.floor(days/30) + 'mo ago'}`);
-                }
-                parts.push(gh.join(' · '));
-                if (s.owner_name) parts.push(`by ${s.owner_name}`);
-                if (s.pushed_at && (Date.now() - new Date(s.pushed_at).getTime()) < 7 * 86400000) {
-                    parts.push('<span class="meta-badge active">🟢 Active</span>');
-                }
-            }
-            // Twitter engagement
-            if (s.likes != null || s.retweets != null || s.replies != null) {
-                let tw = [];
-                if (s.likes != null) tw.push(`❤️ ${s.likes}`);
-                if (s.retweets != null) tw.push(`🔄 ${s.retweets}`);
-                if (s.replies != null) tw.push(`💬 ${s.replies}`);
-                parts.push(tw.join(' · '));
-                if (s.author && KNOWN_KOLS.some(k => s.author.toLowerCase().includes(k))) {
-                    parts.push('<span class="meta-badge kol">🔷 KOL</span>');
-                }
-            }
-            // TVL summary (chart rendered separately)
-            if (s.tvl_history && s.tvl_history.length >= 2) {
-                const first = s.tvl_history[0].tvl, last = s.tvl_history[s.tvl_history.length - 1].tvl;
-                const pct = first > 0 ? ((last - first) / first * 100).toFixed(1) : 0;
-                const dir = last >= first ? 'up' : 'down';
-                parts.push(`<span class="tvl-summary ${dir}">TVL: ${formatTVL(first)} → ${formatTVL(last)} (${pct >= 0 ? '+' : ''}${pct}% 30d)</span>`);
-            }
-            if (!parts.length) return '';
-            return `<div class="signal-meta-row">${parts.join(' ')}</div>`;
+        function shortUrl(url) {
+            try { const u = new URL(url); return u.hostname.replace('www.', '') + (u.pathname.length > 25 ? u.pathname.slice(0, 25) + '…' : u.pathname); }
+            catch(e) { return url; }
         }
 
-        let tvlChartIdx = 0;
-        function renderSignal(s, signalIdx) {
-            if (typeof s === 'string') return `<div class="signal-item"><div class="signal-main">${linkify(s)}</div></div>`;
-            const badge = s.source ? `<span class="source-badge">${SOURCE_ICONS[s.source.toLowerCase()] || '📌'}</span>` : '';
-            const text = s.url ? `<a href="${s.url}" target="_blank" rel="noopener">${s.text || shortUrl(s.url)}</a>` : (s.text || '');
-            const comment = s.comment ? `<div class="signal-comment">${s.comment}</div>` : '';
-            // TVL mini chart placeholder
-            let tvlChart = '';
-            if (s.tvl_history && s.tvl_history.length >= 2) {
-                const cid = `tvl-mini-${tvlChartIdx++}`;
-                const tvlData = JSON.stringify(s.tvl_history).replace(/"/g, '&quot;');
-                tvlChart = `<div class="tvl-mini-chart-wrap"><canvas id="${cid}" width="120" height="60" data-tvl="${tvlData}"></canvas></div>`;
-            }
-            const meta = renderSignalMetaRow(s, signalIdx);
-            return `<div class="signal-item"><div class="signal-main">${badge}${text}${tvlChart}</div>${comment}${meta}</div>`;
+        function linkify(text) {
+            return text.replace(/(https?:\/\/[^\s<]+)/g, url => {
+                let label = url;
+                try { const u = new URL(url); label = u.hostname.replace('www.', '') + (u.pathname.length > 20 ? u.pathname.slice(0, 20) + '…' : u.pathname); } catch(e) {}
+                return `<a href="${url}" target="_blank">${label}</a>`;
+            });
+        }
+
+        function renderNarrativeTVLSummary(signals) {
+            const tvlSignals = (signals || []).filter(s => typeof s === 'object' && s.tvl_history && s.tvl_history.length >= 2);
+            if (!tvlSignals.length) return '';
+            let totalFirst = 0, totalLast = 0;
+            tvlSignals.forEach(s => { totalFirst += s.tvl_history[0].tvl || 0; totalLast += s.tvl_history[s.tvl_history.length - 1].tvl || 0; });
+            if (!totalFirst && !totalLast) return '';
+            const pct = totalFirst > 0 ? ((totalLast - totalFirst) / totalFirst * 100).toFixed(0) : 0;
+            const dir = totalLast >= totalFirst ? 'up' : 'down';
+            return `<span class="narrative-tvl-summary ${dir}">📊 ${formatTVL(totalLast)} (${pct >= 0 ? '+' : ''}${pct}% 30d)</span>`;
+        }
+
+        function renderVelocity(n) {
+            const v = n.velocity; if (!v) return '';
+            const trend = (v.trend || n.direction || 'emerging').toLowerCase();
+            return `<div class="velocity-section">
+                <span class="velocity-number ${trend}">${v.velocity != null ? v.velocity : ''}</span>
+                <span class="velocity-trend">${TREND_ARROWS[trend] || '→'} ${trend}</span>
+                ${renderSparkline(v)}
+            </div>`;
+        }
+
+        function renderSparkline(v) {
+            if (!v || !v.daily_counts) return '';
+            const dates = Object.keys(v.daily_counts).sort().slice(-7);
+            if (!dates.length) return '';
+            const vals = dates.map(d => v.daily_counts[d]);
+            const max = Math.max(...vals, 1);
+            const trend = (v.trend || 'emerging').toLowerCase();
+            return `<div class="sparkline-container">${vals.map(val => `<div class="sparkline-bar ${trend}" style="height:${Math.max(2, (val / max) * 22)}px"></div>`).join('')}</div>`;
         }
 
         function renderSignalBreakdown(signals) {
@@ -837,90 +785,60 @@
             return `<div class="signal-breakdown">${signals.length} signals: ${parts.join(' · ')}</div>`;
         }
 
-        function renderSparkline(velocity) {
-            if (!velocity || !velocity.daily_counts) return '';
-            const dc = velocity.daily_counts;
-            const dates = Object.keys(dc).sort().slice(-7);
-            if (!dates.length) return '';
-            const vals = dates.map(d => dc[d]);
-            const max = Math.max(...vals, 1);
-            const trend = (velocity.trend || 'emerging').toLowerCase();
-            return `<div class="sparkline-container">${vals.map(v => `<div class="sparkline-bar ${trend}" style="height:${Math.max(2, (v / max) * 22)}px"></div>`).join('')}</div>`;
+        let tvlIdx = 0;
+        function renderSignal(s, si) {
+            if (typeof s === 'string') return `<div class="signal-item"><div class="signal-main">${linkify(s)}</div></div>`;
+            const badge = s.source ? `<span class="source-badge">${SOURCE_ICONS[s.source.toLowerCase()] || '📌'}</span>` : '';
+            const text = s.url ? `<a href="${s.url}" target="_blank">${s.text || shortUrl(s.url)}</a>` : (s.text || '');
+            const comment = s.comment ? `<div class="signal-comment">${s.comment}</div>` : '';
+            let tvlChart = '';
+            if (s.tvl_history && s.tvl_history.length >= 2) {
+                const cid = `tvl-mini-${tvlIdx++}`;
+                tvlChart = `<div class="tvl-mini-chart-wrap"><canvas id="${cid}" width="120" height="60" data-tvl='${JSON.stringify(s.tvl_history)}'></canvas></div>`;
+            }
+            const meta = renderSignalMeta(s);
+            return `<div class="signal-item"><div class="signal-main">${badge}${text}${tvlChart}</div>${comment}${meta}</div>`;
         }
 
-        function renderVelocity(n) {
-            const v = n.velocity;
-            if (!v) return '';
-            const trend = (v.trend || n.direction || 'emerging').toLowerCase();
-            const arrows = { accelerating: '↗', emerging: '→', stabilizing: '↘' };
-            return `<div class="velocity-section">
-                <span class="velocity-number ${trend}">${v.velocity != null ? v.velocity : ''}</span>
-                <span class="velocity-trend">${arrows[trend] || '→'} ${trend}</span>
-                ${renderSparkline(v)}
+        function renderSignalMeta(s) {
+            const parts = [];
+            if (s.stars != null || s.forks != null) {
+                let gh = [];
+                if (s.stars != null) gh.push(`⭐ ${s.stars}`);
+                if (s.forks != null) gh.push(`🍴 ${s.forks}`);
+                parts.push(gh.join(' · '));
+                if (s.pushed_at && (Date.now() - new Date(s.pushed_at).getTime()) < 7 * 86400000)
+                    parts.push('<span class="meta-badge active">🟢 Active</span>');
+            }
+            if (s.likes != null || s.retweets != null) {
+                let tw = [];
+                if (s.likes != null) tw.push(`❤️ ${s.likes}`);
+                if (s.retweets != null) tw.push(`🔄 ${s.retweets}`);
+                parts.push(tw.join(' · '));
+                if (s.author && KNOWN_KOLS.some(k => s.author.toLowerCase().includes(k)))
+                    parts.push('<span class="meta-badge kol">🔷 KOL</span>');
+            }
+            if (s.tvl_history && s.tvl_history.length >= 2) {
+                const first = s.tvl_history[0].tvl, last = s.tvl_history[s.tvl_history.length - 1].tvl;
+                const pct = first > 0 ? ((last - first) / first * 100).toFixed(1) : 0;
+                const dir = last >= first ? 'up' : 'down';
+                parts.push(`<span class="tvl-summary ${dir}">TVL: ${formatTVL(first)} → ${formatTVL(last)} (${pct >= 0 ? '+' : ''}${pct}%)</span>`);
+            }
+            if (!parts.length) return '';
+            return `<div class="signal-meta-row">${parts.join(' ')}</div>`;
+        }
+
+        function renderIdea(idea) {
+            return `<div class="idea-card">
+                <div class="idea-name">${esc(idea.name)}</div>
+                <div class="idea-desc">${esc(idea.description)}</div>
+                ${renderKeyMetrics(idea.key_metrics)}
+                ${idea.market_analysis ? `<div class="idea-market-analysis">📊 ${esc(idea.market_analysis)}</div>` : ''}
+                ${idea.revenue_model ? `<div class="idea-revenue">💰 ${esc(idea.revenue_model)}</div>` : ''}
+                <div class="idea-meta">${idea.complexity ? `⏱️ ${idea.complexity}` : ''}${idea.target_user ? ` · 👤 ${idea.target_user}` : ''}${idea.solana_integrations ? ` · 🔗 ${idea.solana_integrations.join(', ')}` : ''}</div>
+                ${idea.why_it_wins ? `<div class="idea-why-now"><span class="prefix">📈 Why now:</span> ${esc(idea.why_it_wins)}</div>` : ''}
+                ${idea.reference_links && idea.reference_links.length ? `<div class="idea-refs">Similar: ${idea.reference_links.map(l => `<a href="${l}" target="_blank">${shortUrl(l)}</a>`).join(', ')}</div>` : ''}
             </div>`;
-        }
-
-        function getSourceCounts(signals) {
-            const counts = {};
-            (signals || []).forEach(s => { if (typeof s === 'object' && s.source) counts[s.source.toLowerCase()] = (counts[s.source.toLowerCase()] || 0) + 1; });
-            return counts;
-        }
-
-        function getTrendColor(trend) {
-            if (trend === 'accelerating') return { line: '#00d18c', bg: 'rgba(0,209,140,0.12)' };
-            if (trend === 'emerging') return { line: '#f5a623', bg: 'rgba(245,166,35,0.12)' };
-            return { line: '#8888a0', bg: 'rgba(136,136,160,0.08)' };
-        }
-
-        function createTrendChart(canvasId, dailyCounts, trend) {
-            if (typeof Chart === 'undefined') return;
-            const canvas = document.getElementById(canvasId);
-            if (!canvas || !dailyCounts) return;
-            const dates = Object.keys(dailyCounts).sort();
-            if (!dates.length) { canvas.parentElement.style.display = 'none'; return; }
-            const values = dates.map(d => dailyCounts[d]);
-            const colors = getTrendColor(trend);
-            const ctx = canvas.getContext('2d');
-            const gradient = ctx.createLinearGradient(0, 0, 0, 180);
-            gradient.addColorStop(0, colors.bg);
-            gradient.addColorStop(1, 'rgba(0,0,0,0)');
-            if (chartInstances[canvasId]) chartInstances[canvasId].destroy();
-            chartInstances[canvasId] = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: dates.map(d => d.slice(5)),
-                    datasets: [{
-                        data: values, borderColor: colors.line, backgroundColor: gradient,
-                        fill: true, tension: 0.35, pointRadius: 2.5,
-                        pointBackgroundColor: colors.line, borderWidth: 2,
-                    }]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
-                    scales: {
-                        x: { grid: { color: '#1e1e30' }, ticks: { color: '#5c5c74', font: { size: 10 } } },
-                        y: { grid: { color: '#1e1e30' }, ticks: { color: '#5c5c74', font: { size: 10 } }, beginAtZero: true }
-                    }
-                }
-            });
-        }
-
-        function createDonutChart(canvasId, sourceCounts) {
-            if (typeof Chart === 'undefined') return;
-            const canvas = document.getElementById(canvasId);
-            if (!canvas) return;
-            const entries = Object.entries(sourceCounts);
-            if (!entries.length) { canvas.parentElement.style.display = 'none'; return; }
-            if (chartInstances[canvasId]) chartInstances[canvasId].destroy();
-            chartInstances[canvasId] = new Chart(canvas.getContext('2d'), {
-                type: 'doughnut',
-                data: {
-                    labels: entries.map(([k]) => k),
-                    datasets: [{ data: entries.map(([,v]) => v), backgroundColor: entries.map(([k]) => SOURCE_COLORS[k] || '#5c5c74'), borderWidth: 0 }]
-                },
-                options: { responsive: false, plugins: { legend: { display: false }, tooltip: { enabled: true } }, cutout: '65%' }
-            });
         }
 
         function renderKeyMetrics(metrics) {
@@ -933,28 +851,60 @@
                 </div>`).join('')}</div>`;
         }
 
-        function renderNarrativeTVLSummary(signals) {
-            const tvlSignals = (signals || []).filter(s => typeof s === 'object' && s.tvl_history && s.tvl_history.length >= 2);
-            if (!tvlSignals.length) return '';
-            let totalFirst = 0, totalLast = 0;
-            tvlSignals.forEach(s => {
-                totalFirst += s.tvl_history[0].tvl || 0;
-                totalLast += s.tvl_history[s.tvl_history.length - 1].tvl || 0;
+        function toggleSignals(el) {
+            const hidden = el.previousElementSibling;
+            if (!hidden) return;
+            const showing = hidden.style.display !== 'none';
+            hidden.style.display = showing ? 'none' : 'block';
+            el.textContent = showing ? `Show all ▼` : 'Show less ▲';
+        }
+
+        // === CHARTS ===
+        function getTrendColor(trend) {
+            if (trend === 'accelerating') return { line: '#00d18c', bg: 'rgba(0,209,140,0.12)' };
+            if (trend === 'emerging') return { line: '#f5a623', bg: 'rgba(245,166,35,0.12)' };
+            return { line: '#8888a0', bg: 'rgba(136,136,160,0.08)' };
+        }
+
+        function createTrendChart(canvasId, dailyCounts, trend) {
+            if (typeof Chart === 'undefined') return;
+            const canvas = document.getElementById(canvasId);
+            if (!canvas || !dailyCounts) return;
+            const dates = Object.keys(dailyCounts).sort();
+            if (!dates.length) return;
+            const values = dates.map(d => dailyCounts[d]);
+            const colors = getTrendColor(trend);
+            const ctx = canvas.getContext('2d');
+            const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+            gradient.addColorStop(0, colors.bg); gradient.addColorStop(1, 'rgba(0,0,0,0)');
+            if (chartInstances[canvasId]) chartInstances[canvasId].destroy();
+            chartInstances[canvasId] = new Chart(ctx, {
+                type: 'line',
+                data: { labels: dates.map(d => d.slice(5)), datasets: [{ data: values, borderColor: colors.line, backgroundColor: gradient, fill: true, tension: 0.35, pointRadius: 3, pointBackgroundColor: colors.line, borderWidth: 2 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } }, scales: { x: { grid: { color: '#1e1e30' }, ticks: { color: '#5c5c74', font: { size: 10 } } }, y: { grid: { color: '#1e1e30' }, ticks: { color: '#5c5c74', font: { size: 10 } }, beginAtZero: true } } }
             });
-            if (totalFirst === 0 && totalLast === 0) return '';
-            const pct = totalFirst > 0 ? ((totalLast - totalFirst) / totalFirst * 100).toFixed(0) : 0;
-            const dir = totalLast >= totalFirst ? 'up' : 'down';
-            return `<span class="narrative-tvl-summary ${dir}">📊 Combined TVL: ${formatTVL(totalLast)} (${pct >= 0 ? '+' : ''}${pct}% 30d)</span>`;
+        }
+
+        function createDonutChart(canvasId, sourceCounts) {
+            if (typeof Chart === 'undefined') return;
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            const entries = Object.entries(sourceCounts);
+            if (!entries.length) return;
+            if (chartInstances[canvasId]) chartInstances[canvasId].destroy();
+            chartInstances[canvasId] = new Chart(canvas.getContext('2d'), {
+                type: 'doughnut',
+                data: { labels: entries.map(([k]) => k), datasets: [{ data: entries.map(([,v]) => v), backgroundColor: entries.map(([k]) => SOURCE_COLORS[k] || '#5c5c74'), borderWidth: 0 }] },
+                options: { responsive: false, plugins: { legend: { display: false }, tooltip: { enabled: true } }, cutout: '65%' }
+            });
         }
 
         function createTVLMiniCharts() {
             if (typeof Chart === 'undefined') return;
             document.querySelectorAll('canvas[id^="tvl-mini-"]').forEach(canvas => {
                 if (canvas.dataset.rendered) return;
-                const dataStr = canvas.dataset.tvl;
-                if (!dataStr) return;
                 let hist;
-                try { hist = JSON.parse(dataStr); } catch(e) { return; }
+                try { hist = JSON.parse(canvas.dataset.tvl); } catch(e) { return; }
                 if (!hist || hist.length < 2) return;
                 const ctx = canvas.getContext('2d');
                 const vals = hist.map(h => h.tvl);
@@ -968,143 +918,79 @@
                 new Chart(ctx, {
                     type: 'line',
                     data: { labels, datasets: [{ data: vals, borderColor: lineColor, backgroundColor: grad, fill: true, tension: 0.3, pointRadius: 0, borderWidth: 1.5 }] },
-                    options: {
-                        responsive: false, maintainAspectRatio: false,
-                        plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false, callbacks: { label: c => formatTVL(c.parsed.y) } } },
-                        scales: { x: { display: false }, y: { display: false } },
-                        interaction: { mode: 'nearest', axis: 'x', intersect: false }
-                    }
+                    options: { responsive: false, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false, callbacks: { label: c => formatTVL(c.parsed.y) } } }, scales: { x: { display: false }, y: { display: false } } }
                 });
             });
         }
 
-        function renderNarrativeCards(narratives) {
-            Object.keys(chartInstances).forEach(k => { chartInstances[k].destroy(); delete chartInstances[k]; });
-            tvlChartIdx = 0;
-            const html = narratives.map((n, i) => {
-                const conf = (n.confidence || 'low').toLowerCase();
-                const signals = n.supporting_signals || [];
-                const cardId = `signals-${i}`;
-                const visibleCount = 6;
-                const hasMore = signals.length > visibleCount;
-                const trend = ((n.velocity && n.velocity.trend) || n.direction || 'emerging').toLowerCase();
-                const hasDailyCounts = n.velocity && n.velocity.daily_counts && Object.keys(n.velocity.daily_counts).length > 0;
-                const sourceCounts = getSourceCounts(signals);
-                const hasSourceCounts = Object.keys(sourceCounts).length > 0;
-                const trendChartId = `trend-${i}`;
-                const donutChartId = `donut-${i}`;
+        // === ERRORS ===
+        function showError(msg) {
+            const toast = document.getElementById('error-toast');
+            toast.innerHTML = `⚠️ ${msg} <button onclick="hideError(); generateReport()">Retry</button>`;
+            toast.style.display = 'flex'; setTimeout(hideError, 8000);
+        }
+        function hideError() { document.getElementById('error-toast').style.display = 'none'; }
 
-                return `
-                <div class="narrative-card confidence-${conf}">
-                    <div class="narrative-header">
-                        <span class="narrative-name">${n.name}</span>
-                        <div class="badges">
-                            <span class="badge badge-${conf}">${n.confidence}</span>
-                            <span class="badge badge-${(n.direction || '').toLowerCase()}">${n.direction || ''}</span>
-                            ${renderNarrativeTVLSummary(signals)}
-                        </div>
-                    </div>
-                    ${renderVelocity(n)}
-                    <p class="narrative-explanation">${n.explanation || ''}</p>
-                    ${hasDailyCounts || hasSourceCounts ? `
-                    <div class="charts-row">
-                        <div class="trend-chart-wrap"${!hasDailyCounts ? ' style="display:none"' : ''}><canvas id="${trendChartId}"></canvas></div>
-                        <div class="donut-chart-wrap"${!hasSourceCounts ? ' style="display:none"' : ''}><canvas id="${donutChartId}" width="140" height="140"></canvas><div class="chart-label">Sources</div></div>
-                    </div>` : ''}
-                    ${renderSignalBreakdown(signals)}
-                    ${n.market_opportunity ? `<div class="market-opportunity"><div class="label">💎 Market Opportunity</div><div class="content">${n.market_opportunity}</div></div>` : ''}
-                    ${signals.length ? `<div class="signals-list" id="${cardId}">
-                        ${signals.slice(0, visibleCount).map((s, si) => renderSignal(s, si)).join('')}
-                        ${hasMore ? `<div class="signals-hidden" style="display:none">${signals.slice(visibleCount).map((s, si) => renderSignal(s, visibleCount + si)).join('')}</div>
-                        <div class="show-all-toggle" onclick="toggleSignals(this, '${cardId}')">Show all ${signals.length} signals ▼</div>` : ''}
-                    </div>` : ''}
-                    ${n.ideas && n.ideas.length > 0 ? `<div class="ideas-section">
-                        <div class="ideas-title">💡 Build Ideas</div>
-                        <div class="ideas-subtitle">Product opportunities from AI analysis</div>
-                        <div class="ideas-grid">
-                        ${n.ideas.map(idea => `<div class="idea-card">
-                            <div class="idea-name">${idea.name}</div>
-                            <div class="idea-desc">${idea.description}</div>
-                            ${renderKeyMetrics(idea.key_metrics)}
-                            ${idea.market_analysis ? `<div class="idea-market-analysis">📊 ${idea.market_analysis}</div>` : ''}
-                            ${idea.revenue_model ? `<div class="idea-revenue">💰 ${idea.revenue_model}</div>` : ''}
-                            <div class="idea-meta">${idea.complexity ? `⏱️ ${idea.complexity}` : ''}${idea.target_user ? ` · 👤 ${idea.target_user}` : ''}${idea.solana_integrations ? ` · 🔗 ${idea.solana_integrations.join(', ')}` : ''}</div>
-                            ${idea.why_it_wins ? `<div class="idea-why-now"><span class="prefix">📈 Why now:</span> ${idea.why_it_wins}</div>` : ''}
-                            ${idea.reference_links && idea.reference_links.length ? `<div class="idea-refs">Similar: ${idea.reference_links.map(l => `<a href="${l}" target="_blank" rel="noopener">${shortUrl(l)}</a>`).join(', ')}</div>` : ''}
-                        </div>`).join('')}
-                        </div>
-                    </div>` : ''}
-                    ${n.references && n.references.length ? `<div class="references">
-                        <div class="label">References</div>
-                        ${n.references.map(r => { const url = typeof r === 'string' ? r : r.url; const label = (typeof r === 'object' && r.title) ? r.title : shortUrl(url); return `<a href="${url}" target="_blank" rel="noopener">${label}</a>`; }).join('')}
-                    </div>` : ''}
-                </div>`;
-            }).join('');
-
-            document.getElementById('narratives').innerHTML = html;
-            requestAnimationFrame(() => {
-                narratives.forEach((n, i) => {
-                    const trend = ((n.velocity && n.velocity.trend) || n.direction || 'emerging').toLowerCase();
-                    if (n.velocity && n.velocity.daily_counts) createTrendChart(`trend-${i}`, n.velocity.daily_counts, trend);
-                    const sc = getSourceCounts(n.supporting_signals || []);
-                    if (Object.keys(sc).length) createDonutChart(`donut-${i}`, sc);
-                    createTVLMiniCharts();
-                });
-            });
+        // === API ===
+        async function loadReport() {
+            try {
+                const resp = await fetch('/api/narratives');
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const data = await resp.json();
+                if (data.narratives && data.narratives.length > 0) {
+                    currentNarratives = data.narratives;
+                    renderKPIs(data);
+                    renderSidebar(data.narratives);
+                    renderOverviewGrid(data.narratives);
+                    handleRoute();
+                } else {
+                    document.getElementById('narrative-grid').innerHTML = '<div style="text-align:center;padding:48px;color:var(--text-muted)"><p>No narratives detected yet.</p><br><button class="btn" onclick="generateReport()">Generate Report</button></div>';
+                }
+            } catch(e) {
+                if (typeof Sentry !== 'undefined') Sentry.captureException(e);
+                document.getElementById('narrative-grid').innerHTML = '<div style="text-align:center;padding:48px;color:var(--text-muted)"><p>Could not load data.</p><br><button class="btn" onclick="generateReport()">Generate Report</button></div>';
+            }
         }
 
-        function shortUrl(url) {
-            try { const u = new URL(url); return u.hostname.replace('www.', '') + (u.pathname.length > 25 ? u.pathname.slice(0, 25) + '…' : u.pathname); }
-            catch(e) { return url; }
+        async function generateReport() {
+            if (isGenerating) return;
+            isGenerating = true;
+            document.getElementById('loading-overlay').style.display = 'flex';
+            try {
+                const resp = await fetch('/api/generate', { method: 'POST' });
+                if (!resp.ok) throw new Error(`Server error (${resp.status})`);
+                const data = await resp.json();
+                currentNarratives = data.narratives || [];
+                renderKPIs(data);
+                renderSidebar(currentNarratives);
+                renderOverviewGrid(currentNarratives);
+                handleRoute();
+            } catch(e) {
+                if (typeof Sentry !== 'undefined') Sentry.captureException(e);
+                showError(`Failed to generate: ${e.message}`);
+            } finally {
+                document.getElementById('loading-overlay').style.display = 'none';
+                isGenerating = false;
+            }
         }
 
-        function linkify(text) {
-            return text.replace(/(https?:\/\/[^\s<]+)/g, (url) => {
-                let label = url;
-                try {
-                    const u = new URL(url);
-                    if (u.hostname === 'github.com') {
-                        const parts = u.pathname.split('/').filter(Boolean);
-                        if (parts.length >= 2) label = `${parts[0]}/${parts[1]}`;
-                        if (parts.length >= 4 && parts[2] === 'pull') label += ` #${parts[3]}`;
-                    } else { label = u.hostname.replace('www.', '') + (u.pathname.length > 20 ? u.pathname.slice(0, 20) + '…' : u.pathname); }
-                } catch(e) {}
-                return `<a href="${url}" target="_blank" rel="noopener" title="${url}">${label}</a>`;
-            });
-        }
-
-        function toggleSignals(el, cardId) {
-            const hidden = document.querySelector(`#${cardId} .signals-hidden`);
-            if (!hidden) return;
-            const showing = hidden.style.display !== 'none';
-            hidden.style.display = showing ? 'none' : 'block';
-            el.textContent = showing ? 'Show all ▼' : 'Show less ▲';
-            trackEvent('narrative_expanded', { card: cardId, expanded: !showing });
-        }
-
-        // Keyboard navigation
+        // Keyboard nav
         document.addEventListener('keydown', (e) => {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
-            const cards = [...document.querySelectorAll('.narrative-card')];
-            if (!cards.length) return;
-            const focused = document.querySelector('.narrative-card:focus, .narrative-card.kb-focus');
-            let idx = focused ? cards.indexOf(focused) : -1;
-            if (e.key === 'j' || e.key === 'ArrowDown') { idx = Math.min(idx + 1, cards.length - 1); }
-            else if (e.key === 'k' || e.key === 'ArrowUp') { idx = Math.max(idx - 1, 0); }
-            else return;
-            e.preventDefault();
-            cards.forEach(c => c.classList.remove('kb-focus'));
-            cards[idx].classList.add('kb-focus');
-            cards[idx].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            const hash = window.location.hash.slice(1);
+            const match = hash.match(/^narrative-(\d+)$/);
+            if (!match) return;
+            const idx = parseInt(match[1]);
+            if (e.key === 'ArrowLeft' || e.key === 'k') { if (idx > 0) navigate('narrative-' + (idx - 1)); e.preventDefault(); }
+            if (e.key === 'ArrowRight' || e.key === 'j') { if (idx < currentNarratives.length - 1) navigate('narrative-' + (idx + 1)); e.preventDefault(); }
+            if (e.key === 'Escape') { navigate(''); e.preventDefault(); }
         });
 
-        // Delegated click tracking for signals and ideas
-        document.getElementById('narratives').addEventListener('click', (e) => {
-            const link = e.target.closest('.signal-item a');
-            if (link) { trackEvent('signal_link_clicked', { url: link.href }); return; }
-            const idea = e.target.closest('.idea-card');
-            if (idea) { trackEvent('idea_clicked', { idea: (idea.querySelector('.idea-name') || {}).textContent }); }
-        });
+        // Analytics
+        function trackEvent(event, props = {}) {
+            fetch('/api/analytics', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({event, properties: {...props, url: location.href}}) }).catch(() => {});
+        }
+        trackEvent('page_view', { screen_width: screen.width });
 
         loadReport();
     </script>
