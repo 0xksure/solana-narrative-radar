@@ -43,6 +43,12 @@ For each narrative you detect:
 
 Identify 3-7 narratives. Prioritize NOVELTY and SIGNAL QUALITY over volume. Only include narratives with real supporting evidence.
 
+For each supporting signal's "comment" field, explain the SIGNIFICANCE — why this data point matters for the narrative. Examples:
+- GitHub repo with rapid star growth → "Rapid star growth indicates strong developer interest in this approach"
+- KOL tweet with high engagement → "High engagement from ecosystem leader suggests mainstream awareness"
+- TVL spike → "Capital flowing in validates real user demand, not just hype"
+- Active Reddit discussion → "Active community debate signals this narrative has legs beyond speculation"
+
 Respond in JSON format:
 {{
   "narratives": [
@@ -53,7 +59,7 @@ Respond in JSON format:
       "explanation": "2-3 sentences on WHY this narrative is emerging now and why it matters for builders. Go beyond signal counts — explain the underlying market dynamics, user demand, and technical catalysts driving this trend.",
       "market_opportunity": "2-3 sentences on the TAM/market size and why this narrative represents a real opportunity for builders and investors.",
       "references": ["https://relevant-protocol.com", "https://docs.example.com/relevant-page"],
-      "supporting_signals": [{"text": "signal description", "url": "https://...", "source": "twitter|github|defillama|reddit"}],
+      "supporting_signals": [{"text": "signal description", "url": "https://...", "source": "twitter|github|defillama|reddit|onchain", "comment": "1-2 sentence explanation of why this signal matters for the narrative and what it indicates about the trend"}],
       "topics": ["defi", "ai_agents"]
     }}
   ]
@@ -120,6 +126,7 @@ For each idea:
 7. Market analysis: 2-3 sentences on market size, existing competition, and how this product differentiates
 8. Revenue model: how this product makes money (fees, subscriptions, token, etc.)
 9. Reference links: URLs of existing similar products or inspirations
+10. Key metrics: 3-5 quantified metrics with context (addressable market size, competition count, time to market, user base estimate, etc.)
 
 Respond in JSON:
 {{
@@ -133,7 +140,12 @@ Respond in JSON:
       "why_it_wins": "Compelling reason",
       "market_analysis": "2-3 sentences on market size, competition landscape, and differentiation strategy.",
       "revenue_model": "How this product generates revenue.",
-      "reference_links": ["https://similar-product.com", "https://inspiration.xyz"]
+      "reference_links": ["https://similar-product.com", "https://inspiration.xyz"],
+      "key_metrics": [
+        {{"label": "Addressable Market", "value": "$X", "context": "Brief context on market size"}},
+        {{"label": "Competition", "value": "N competitors", "context": "Competitive landscape summary"}},
+        {{"label": "Time to Market", "value": "X weeks", "context": "What enables this timeline"}}
+      ]
     }}
   ]
 }}"""
@@ -168,22 +180,60 @@ def format_signals_for_llm(signals: List[Dict]) -> str:
         url_suffix = f" | URL: {s.get('url')}" if s.get("url") else ""
         
         if source == "github":
+            forks = s.get('forks', 0)
+            created = s.get('created_at', '')
+            lang = s.get('language', '')
+            extra = []
+            if forks:
+                extra.append(f"forks: {forks}")
+            if created:
+                extra.append(f"created: {created[:10]}")
+            if lang:
+                extra.append(f"lang: {lang}")
+            extra_str = f", {', '.join(extra)}" if extra else ""
             sections["github"].append(
                 f"- [{s.get('signal_type')}] {s.get('name')}: {s.get('description', 'N/A')} "
-                f"(⭐{s.get('stars', 0)}, topics: {s.get('topics', [])}, score: {s.get('score', 0)}){url_suffix}"
+                f"(⭐{s.get('stars', 0)}{extra_str}, topics: {s.get('topics', [])}, score: {s.get('score', 0)}){url_suffix}"
             )
         elif source in ("defillama", "defillama_yields"):
+            change_1d = s.get('change_1d', 0)
+            change_30d = s.get('change_30d', 0)
+            apy = s.get('apy', 0)
+            extra = []
+            if change_1d:
+                extra.append(f"1d: {change_1d:+.1f}%")
+            if change_30d:
+                extra.append(f"30d: {change_30d:+.1f}%")
+            if apy:
+                extra.append(f"APY: {apy:.1f}%")
+            extra_str = f", {', '.join(extra)}" if extra else ""
             sections["defillama"].append(
                 f"- {s.get('name')}: TVL ${s.get('tvl', 0):,.0f}, "
-                f"7d change: {s.get('change_7d', 0):+.1f}%, category: {s.get('category', 'N/A')}{url_suffix}"
+                f"7d change: {s.get('change_7d', 0):+.1f}%{extra_str}, category: {s.get('category', 'N/A')}{url_suffix}"
             )
         elif source in ("twitter", "twitter_nitter", "twitter_syndication", "reddit"):
+            engagement = []
+            for key in ('likes', 'retweets', 'replies', 'comments', 'upvotes', 'score'):
+                val = s.get(key, 0)
+                if val:
+                    engagement.append(f"{key}: {val}")
+            eng_str = f" ({', '.join(engagement)})" if engagement else ""
+            author = s.get('author', '')
+            author_str = f" by @{author}" if author else ""
             sections["social"].append(
-                f"- [{source}/{s.get('signal_type')}] {s.get('content', s.get('name', ''))[:200]}{url_suffix}"
+                f"- [{source}/{s.get('signal_type')}]{author_str} {s.get('content', s.get('name', ''))[:200]}{eng_str}{url_suffix}"
             )
         elif source in ("solana_rpc", "birdeye", "solscan", "solanafm"):
+            volume = s.get('volume', 0)
+            price_change = s.get('price_change', 0)
+            extra = []
+            if volume:
+                extra.append(f"vol: ${volume:,.0f}")
+            if price_change:
+                extra.append(f"price: {price_change:+.1f}%")
+            extra_str = f" ({', '.join(extra)})" if extra else ""
             sections["onchain"].append(
-                f"- [{source}] {s.get('name', '')}: {s.get('content', '')[:150]}{url_suffix}"
+                f"- [{source}] {s.get('name', '')}: {s.get('content', '')[:150]}{extra_str}{url_suffix}"
             )
         else:
             sections["other"].append(
@@ -296,7 +346,12 @@ def _fallback_clustering(signals: List[Dict]) -> Dict:
             "market_opportunity": f"The {topic.replace('_', ' ')} sector on Solana is growing with {len(sigs)} active signals detected. This represents an emerging opportunity as developer and user activity converges around this narrative.",
             "references": [],
             "supporting_signals": [
-                {"text": s.get("name", ""), "url": s.get("url", ""), "source": s.get("source", "")}
+                {
+                    "text": s.get("name", ""),
+                    "url": s.get("url", ""),
+                    "source": s.get("source", ""),
+                    "comment": f"Score {s.get('score', 0)} signal from {s.get('source', 'unknown')} — indicates active development in this area"
+                }
                 for s in top_sigs
             ],
             "topics": [topic] + related_topics[:2],
@@ -322,6 +377,11 @@ def _fallback_ideas(narrative: Dict) -> List[Dict]:
         "market_analysis": "Market size and competition analysis not available in fallback mode. Run with LLM for detailed analysis.",
         "revenue_model": "Revenue model analysis not available in fallback mode.",
         "reference_links": [],
+        "key_metrics": [
+            {"label": "Addressable Market", "value": "TBD", "context": "Requires LLM analysis for estimation"},
+            {"label": "Competition", "value": "TBD", "context": "Requires LLM analysis"},
+            {"label": "Time to Market", "value": "TBD", "context": "See complexity field for estimate"},
+        ],
     }
 
     idea_templates = {
