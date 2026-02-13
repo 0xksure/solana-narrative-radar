@@ -112,7 +112,51 @@ async def collect_onchain_signals() -> List[Dict]:
         except Exception:
             pass
         
-        # 5. Supply info (total SOL supply/staked as macro signal)
+        # 5. Jupiter trending tokens (public, no API key)
+        try:
+            resp = await client.get("https://tokens.jup.ag/tokens?tags=verified&sort_by=daily_volume&limit=10")
+            if resp.status_code == 200:
+                tokens = resp.json() if isinstance(resp.json(), list) else []
+                for token in tokens[:5]:
+                    name = token.get("name", "Unknown")
+                    symbol = token.get("symbol", "?")
+                    vol = token.get("daily_volume", 0)
+                    if vol and vol > 1_000_000:
+                        signals.append({
+                            "source": "jupiter",
+                            "signal_type": "trending_token",
+                            "name": f"Jupiter top volume: {symbol} (${vol:,.0f})",
+                            "content": f"{name} ({symbol}) with ${vol:,.0f} daily volume on Jupiter",
+                            "url": f"https://jup.ag/swap/SOL-{token.get('address', '')}",
+                            "topics": ["trading", "defi"],
+                            "collected_at": datetime.utcnow().isoformat()
+                        })
+        except Exception as e:
+            print(f"  ⚠️ Jupiter API error: {e}")
+
+        # 6. Recent program activity via getSignaturesForAddress for key programs
+        for program_id, program_name in list(TRACKED_PROGRAMS.items())[:3]:
+            try:
+                sig_resp = await client.post(
+                    "https://api.mainnet-beta.solana.com",
+                    json={"jsonrpc": "2.0", "id": 1, "method": "getSignaturesForAddress",
+                          "params": [program_id, {"limit": 10}]}
+                )
+                if sig_resp.status_code == 200:
+                    sigs = sig_resp.json().get("result", [])
+                    if sigs:
+                        signals.append({
+                            "source": "solana_rpc",
+                            "signal_type": "program_activity",
+                            "name": f"{program_name}: {len(sigs)} recent txs",
+                            "content": f"{program_name} ({program_id[:8]}...) had {len(sigs)} transactions in recent slots",
+                            "topics": ["defi", "infrastructure"],
+                            "collected_at": datetime.utcnow().isoformat()
+                        })
+            except Exception:
+                pass
+
+        # 8. Supply info (total SOL supply/staked as macro signal)
         try:
             supply_resp = await client.post(
                 "https://api.mainnet-beta.solana.com",
