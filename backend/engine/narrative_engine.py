@@ -145,7 +145,7 @@ def cluster_narratives(scored_signals: List[Dict]) -> Dict:
     client = Anthropic(api_key=ANTHROPIC_API_KEY)
     
     response = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-3-5-haiku-20241022",
         max_tokens=4000,
         messages=[{
             "role": "user",
@@ -206,7 +206,7 @@ For "references", include relevant links you know about: protocol websites, docu
             result = json.loads(text[start:end])
             result["meta"] = {
                 "signal_count": len(top_signals),
-                "model": "claude-sonnet-4-20250514",
+                "model": "claude-3-5-haiku-20241022",
             }
             return result
     except (json.JSONDecodeError, IndexError) as e:
@@ -232,7 +232,7 @@ def generate_ideas(narratives: List[Dict]) -> List[Dict]:
     enriched = []
     for narrative in narratives:
         response = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model="claude-3-5-haiku-20241022",
             max_tokens=2000,
             messages=[{
                 "role": "user",
