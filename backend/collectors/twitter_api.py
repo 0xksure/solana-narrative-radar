@@ -79,8 +79,9 @@ HOME_FEATURES = {
 
 def get_credentials() -> Optional[tuple]:
     """Get Twitter credentials from environment. Returns (auth_token, ct0) or None."""
-    auth_token = (os.environ.get("TWITTER_AUTH_TOKEN") or os.environ.get("AUTH_TOKEN") or "").strip()
-    ct0 = (os.environ.get("TWITTER_CT0") or os.environ.get("CT0") or "").strip()
+    # Strip ALL whitespace (DO App Platform may inject newlines in long secrets)
+    auth_token = "".join((os.environ.get("TWITTER_AUTH_TOKEN") or os.environ.get("AUTH_TOKEN") or "").split())
+    ct0 = "".join((os.environ.get("TWITTER_CT0") or os.environ.get("CT0") or "").split())
     if not auth_token or not ct0:
         return None
     return (auth_token, ct0)

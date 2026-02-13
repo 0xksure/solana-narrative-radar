@@ -7,7 +7,8 @@ from collections import Counter, defaultdict
 from typing import List, Dict, Tuple
 from anthropic import Anthropic
 
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
+# Strip ALL whitespace (DO App Platform may inject newlines in long secrets)
+ANTHROPIC_API_KEY = "".join(os.getenv("ANTHROPIC_API_KEY", "").split())
 if ANTHROPIC_API_KEY:
     print(f"✅ Anthropic API key loaded ({len(ANTHROPIC_API_KEY)} chars)")
 else:
