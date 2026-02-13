@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>📡 Solana Narrative Radar</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
@@ -18,6 +19,8 @@
         }
         h1 { font-size: 2.5em; color: #9945FF; margin-bottom: 10px; }
         .subtitle { color: #999; font-size: 1.1em; }
+        .header-chart-container { display: inline-block; vertical-align: middle; margin-left: 16px; }
+        .header-chart-container canvas { height: 40px !important; width: 200px !important; }
         
         /* About section */
         .about-section {
@@ -105,6 +108,21 @@
         
         .narrative-explanation { color: #bbb; margin: 12px 0; font-size: 1em; line-height: 1.7; }
         
+        /* Charts grid */
+        .charts-row {
+            display: grid; grid-template-columns: 1fr 150px; gap: 16px;
+            align-items: start; margin: 16px 0;
+        }
+        .charts-row .trend-chart-wrap { min-width: 0; }
+        .charts-row .trend-chart-wrap canvas { width: 100% !important; height: 200px !important; }
+        .charts-row .donut-chart-wrap { width: 150px; text-align: center; }
+        .charts-row .donut-chart-wrap canvas { width: 150px !important; height: 150px !important; }
+        .chart-label { color: #777; font-size: 0.8em; text-align: center; margin-top: 4px; }
+        @media (max-width: 600px) {
+            .charts-row { grid-template-columns: 1fr; }
+            .charts-row .donut-chart-wrap { width: 150px; margin: 0 auto; }
+        }
+        
         /* Market opportunity callout */
         .market-opportunity {
             background: linear-gradient(135deg, #1a1a0a 0%, #1a2a0a 100%);
@@ -127,10 +145,11 @@
         .signal-item { 
             color: #999; font-size: 0.95em; padding: 6px 0;
             border-left: 2px solid #333; padding-left: 12px; margin: 6px 0;
-            display: flex; align-items: baseline; gap: 6px;
         }
+        .signal-item .signal-main { display: flex; align-items: baseline; gap: 6px; }
         .signal-item a { color: #9945FF; text-decoration: none; }
         .signal-item a:hover { text-decoration: underline; }
+        .signal-comment { color: #666; font-size: 0.85em; font-style: italic; margin-top: 2px; padding-left: 2px; }
         .source-badge { font-size: 0.8em; opacity: 0.8; flex-shrink: 0; }
         .show-all-toggle { color: #9945FF; cursor: pointer; font-size: 0.85em; margin-top: 4px; padding-left: 14px; }
         .show-all-toggle:hover { text-decoration: underline; }
@@ -153,6 +172,18 @@
         
         /* Meta trend */
         .meta-trend { color: #4ade80; font-size: 0.85em; margin-left: 4px; }
+        
+        /* Key metrics */
+        .key-metrics-row {
+            display: flex; gap: 12px; flex-wrap: wrap; margin: 12px 0;
+        }
+        .key-metric-card {
+            background: #0d0d18; border: 1px solid #2a2a3a; border-radius: 8px;
+            padding: 12px 16px; flex: 1; min-width: 140px;
+        }
+        .key-metric-label { color: #777; font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.5px; }
+        .key-metric-value { color: #fff; font-size: 1.5em; font-weight: bold; margin: 2px 0; }
+        .key-metric-context { color: #666; font-size: 0.8em; }
         
         /* Ideas section - enhanced */
         .ideas-title { color: #9945FF; font-size: 1.05em; margin-bottom: 4px; font-weight: bold; }
@@ -230,6 +261,7 @@
             .narrative-name { font-size: 1.2em; }
             .confidence-high .narrative-name { font-size: 1.3em; }
             .meta-bar { justify-content: center; }
+            .header-chart-container { display: block; margin: 10px auto 0; }
         }
         @media (min-width: 769px) and (max-width: 1024px) {
             .container { padding: 16px 24px; }
@@ -240,7 +272,9 @@
 <body>
     <header>
         <h1>📡 Solana Narrative Radar</h1>
-        <p class="subtitle">AI-powered detection of emerging narratives in the Solana ecosystem</p>
+        <p class="subtitle">AI-powered detection of emerging narratives in the Solana ecosystem
+            <span class="header-chart-container"><canvas id="header-activity-chart"></canvas></span>
+        </p>
     </header>
     
     <div class="container">
@@ -324,9 +358,16 @@
     </footer>
 
     <script>
+        // Chart.js dark mode defaults
+        if (typeof Chart !== 'undefined') {
+            Chart.defaults.color = '#999';
+            Chart.defaults.borderColor = '#222';
+        }
+
         let isGenerating = false;
         let currentNarratives = [];
         let reportGeneratedAt = null;
+        let chartInstances = {};
         
         function toggleAbout() {
             document.getElementById('about-section').classList.toggle('collapsed');
@@ -367,6 +408,7 @@
                 if (data.narratives && data.narratives.length > 0) {
                     renderMeta(data);
                     renderNarratives(data.narratives);
+                    renderHeaderActivityChart(data.narratives);
                 } else {
                     document.getElementById('narratives').innerHTML = 
                         '<div class="loading">No narratives detected yet.<br><br><button class="btn" onclick="generateReport()">🚀 Generate Report</button></div>';
@@ -389,6 +431,7 @@
                 const data = await resp.json();
                 renderMeta(data);
                 renderNarratives(data.narratives || []);
+                renderHeaderActivityChart(data.narratives || []);
             } catch (e) {
                 showError(`Failed to generate report: ${e.message}`);
             } finally {
@@ -415,6 +458,48 @@
                 return `<span class="meta-trend" style="color:${color}">📈 ${todayTotal} signals (${sign}${pct}% vs yesterday)</span>`;
             }
             return '';
+        }
+        
+        // Aggregate daily_counts across all narratives for header chart
+        function aggregateDailyCounts(narratives) {
+            const agg = {};
+            (narratives || []).forEach(n => {
+                const dc = n.velocity && n.velocity.daily_counts;
+                if (!dc) return;
+                Object.entries(dc).forEach(([d, v]) => { agg[d] = (agg[d] || 0) + v; });
+            });
+            const dates = Object.keys(agg).sort().slice(-7);
+            return { dates, values: dates.map(d => agg[d]) };
+        }
+        
+        function renderHeaderActivityChart(narratives) {
+            if (typeof Chart === 'undefined') return;
+            const { dates, values } = aggregateDailyCounts(narratives);
+            if (!dates.length) return;
+            const canvas = document.getElementById('header-activity-chart');
+            if (!canvas) return;
+            if (chartInstances['header']) chartInstances['header'].destroy();
+            const ctx = canvas.getContext('2d');
+            chartInstances['header'] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: dates.map(d => d.slice(5)),
+                    datasets: [{
+                        data: values,
+                        backgroundColor: 'rgba(153,69,255,0.6)',
+                        borderRadius: 2,
+                        barPercentage: 0.7,
+                    }]
+                },
+                options: {
+                    responsive: false,
+                    plugins: { legend: { display: false }, tooltip: { enabled: true } },
+                    scales: {
+                        x: { display: false },
+                        y: { display: false }
+                    }
+                }
+            });
         }
         
         function renderMeta(data) {
@@ -452,13 +537,15 @@
             renderNarrativeCards(narratives);
         }
         
-        const SOURCE_ICONS = { github: '🐙', twitter: '🐦', defi: '📊', 'on-chain': '⛓️', onchain: '⛓️', reddit: '💬' };
+        const SOURCE_ICONS = { github: '🐙', twitter: '🐦', defi: '📊', 'on-chain': '⛓️', onchain: '⛓️', reddit: '💬', defillama: '📊' };
+        const SOURCE_COLORS = { github: '#4ade80', twitter: '#1d9bf0', defillama: '#9945FF', defi: '#9945FF', reddit: '#ff4500', 'on-chain': '#14F195', onchain: '#14F195' };
         
         function renderSignal(s) {
-            if (typeof s === 'string') return `<div class="signal-item">${linkify(s)}</div>`;
+            if (typeof s === 'string') return `<div class="signal-item"><div class="signal-main">${linkify(s)}</div></div>`;
             const badge = s.source ? `<span class="source-badge">${SOURCE_ICONS[s.source.toLowerCase()] || '📌'}</span>` : '';
             const text = s.url ? `<a href="${s.url}" target="_blank" rel="noopener">${s.text || shortUrl(s.url)}</a>` : (s.text || '');
-            return `<div class="signal-item">${badge}${text}</div>`;
+            const comment = s.comment ? `<div class="signal-comment">${s.comment}</div>` : '';
+            return `<div class="signal-item"><div class="signal-main">${badge}${text}</div>${comment}</div>`;
         }
         
         function renderSignalBreakdown(signals) {
@@ -500,13 +587,122 @@
                 </div>`;
         }
         
+        function getSourceCounts(signals) {
+            const counts = {};
+            (signals || []).forEach(s => {
+                if (typeof s === 'object' && s.source) {
+                    const src = s.source.toLowerCase();
+                    counts[src] = (counts[src] || 0) + 1;
+                }
+            });
+            return counts;
+        }
+        
+        function getTrendColor(trend) {
+            if (trend === 'accelerating') return { line: '#4ade80', bg: 'rgba(74,222,128,0.15)' };
+            if (trend === 'emerging') return { line: '#fb923c', bg: 'rgba(251,146,60,0.15)' };
+            return { line: '#a8a29e', bg: 'rgba(168,162,158,0.1)' };
+        }
+        
+        function createTrendChart(canvasId, dailyCounts, trend) {
+            if (typeof Chart === 'undefined') return;
+            const canvas = document.getElementById(canvasId);
+            if (!canvas || !dailyCounts) return;
+            const dates = Object.keys(dailyCounts).sort();
+            if (!dates.length) { canvas.parentElement.style.display = 'none'; return; }
+            const values = dates.map(d => dailyCounts[d]);
+            const colors = getTrendColor(trend);
+            const ctx = canvas.getContext('2d');
+            const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+            gradient.addColorStop(0, colors.bg);
+            gradient.addColorStop(1, 'rgba(0,0,0,0)');
+            if (chartInstances[canvasId]) chartInstances[canvasId].destroy();
+            chartInstances[canvasId] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates.map(d => d.slice(5)),
+                    datasets: [{
+                        label: 'Signals',
+                        data: values,
+                        borderColor: colors.line,
+                        backgroundColor: gradient,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 3,
+                        pointBackgroundColor: colors.line,
+                        borderWidth: 2,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        title: { display: true, text: '📈 Signal Trend', align: 'start', color: '#999', font: { size: 12 } },
+                        tooltip: { mode: 'index', intersect: false }
+                    },
+                    scales: {
+                        x: { grid: { color: '#222' }, ticks: { color: '#666', font: { size: 10 } } },
+                        y: { grid: { color: '#222' }, ticks: { color: '#666', font: { size: 10 } }, beginAtZero: true }
+                    }
+                }
+            });
+        }
+        
+        function createDonutChart(canvasId, sourceCounts) {
+            if (typeof Chart === 'undefined') return;
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            const entries = Object.entries(sourceCounts);
+            if (!entries.length) { canvas.parentElement.style.display = 'none'; return; }
+            const labels = entries.map(([k]) => k);
+            const data = entries.map(([, v]) => v);
+            const colors = labels.map(k => SOURCE_COLORS[k] || '#666');
+            if (chartInstances[canvasId]) chartInstances[canvasId].destroy();
+            chartInstances[canvasId] = new Chart(canvas.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels,
+                    datasets: [{ data, backgroundColor: colors, borderWidth: 0 }]
+                },
+                options: {
+                    responsive: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: true }
+                    },
+                    cutout: '60%'
+                }
+            });
+        }
+        
+        function renderKeyMetrics(metrics) {
+            if (!metrics || !metrics.length) return '';
+            return `<div class="key-metrics-row">${metrics.map(m => `
+                <div class="key-metric-card">
+                    <div class="key-metric-label">${m.label || ''}</div>
+                    <div class="key-metric-value">${m.value || ''}</div>
+                    ${m.context ? `<div class="key-metric-context">${m.context}</div>` : ''}
+                </div>`).join('')}</div>`;
+        }
+        
         function renderNarrativeCards(narratives) {
+            // Destroy old chart instances
+            Object.keys(chartInstances).forEach(k => { if (k !== 'header') { chartInstances[k].destroy(); delete chartInstances[k]; } });
+            
             const html = narratives.map((n, i) => {
                 const conf = (n.confidence || 'low').toLowerCase();
                 const signals = n.supporting_signals || [];
                 const cardId = `signals-${i}`;
                 const visibleCount = 8;
                 const hasMore = signals.length > visibleCount;
+                const trend = ((n.velocity && n.velocity.trend) || n.direction || 'emerging').toLowerCase();
+                const hasDailyCounts = n.velocity && n.velocity.daily_counts && Object.keys(n.velocity.daily_counts).length > 0;
+                const sourceCounts = getSourceCounts(signals);
+                const hasSourceCounts = Object.keys(sourceCounts).length > 0;
+                const trendChartId = `trend-chart-${i}`;
+                const donutChartId = `donut-chart-${i}`;
+                
                 return `
                 <div class="narrative-card confidence-${conf}">
                     <div class="narrative-header">
@@ -518,6 +714,18 @@
                     </div>
                     ${renderVelocity(n)}
                     <p class="narrative-explanation">${n.explanation || ''}</p>
+                    
+                    ${hasDailyCounts || hasSourceCounts ? `
+                    <div class="charts-row">
+                        <div class="trend-chart-wrap"${!hasDailyCounts ? ' style="display:none"' : ''}>
+                            <canvas id="${trendChartId}"></canvas>
+                        </div>
+                        <div class="donut-chart-wrap"${!hasSourceCounts ? ' style="display:none"' : ''}>
+                            <canvas id="${donutChartId}" width="150" height="150"></canvas>
+                            <div class="chart-label">Signal Sources</div>
+                        </div>
+                    </div>` : ''}
+                    
                     ${renderSignalBreakdown(signals)}
                     
                     ${n.market_opportunity ? `
@@ -544,6 +752,7 @@
                                 <div class="idea-card">
                                     <div class="idea-name">${idea.name}</div>
                                     <div class="idea-desc">${idea.description}</div>
+                                    ${renderKeyMetrics(idea.key_metrics)}
                                     ${idea.market_analysis ? `<div class="idea-market-analysis">📊 ${idea.market_analysis}</div>` : ''}
                                     ${idea.revenue_model ? `<div class="idea-revenue">💰 ${idea.revenue_model}</div>` : ''}
                                     <div class="idea-meta">
@@ -575,6 +784,20 @@
             `}).join('');
             
             document.getElementById('narratives').innerHTML = html;
+            
+            // Render charts after DOM insertion
+            requestAnimationFrame(() => {
+                narratives.forEach((n, i) => {
+                    const trend = ((n.velocity && n.velocity.trend) || n.direction || 'emerging').toLowerCase();
+                    if (n.velocity && n.velocity.daily_counts) {
+                        createTrendChart(`trend-chart-${i}`, n.velocity.daily_counts, trend);
+                    }
+                    const sourceCounts = getSourceCounts(n.supporting_signals || []);
+                    if (Object.keys(sourceCounts).length) {
+                        createDonutChart(`donut-chart-${i}`, sourceCounts);
+                    }
+                });
+            });
         }
         
         function shortUrl(url) {
