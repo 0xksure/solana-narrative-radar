@@ -126,8 +126,25 @@ def pre_cluster_signals(signals: List[Dict], similarity_threshold: float = 0.15)
 def cluster_narratives(scored_signals: List[Dict]) -> Dict:
     """Use Claude to cluster signals into narratives"""
     
-    # Take top signals (>40 score) for analysis
-    top_signals = [s for s in scored_signals if s.get("score", 0) > 40][:50]
+    # Ensure source diversity: take top signals per source category
+    # so GitHub/DeFiLlama don't drown out social/onchain signals
+    scored_above_threshold = [s for s in scored_signals if s.get("score", 0) > 20]
+    scored_above_threshold.sort(key=lambda x: x.get("score", 0), reverse=True)
+    
+    top_per_source = {}
+    for s in scored_above_threshold:
+        src = s.get("source", "other")
+        src_key = "social" if src in ("twitter", "reddit", "twitter_nitter", "twitter_syndication") else src
+        if src_key not in top_per_source:
+            top_per_source[src_key] = []
+        if len(top_per_source[src_key]) < 15:  # max 15 per source category
+            top_per_source[src_key].append(s)
+    
+    top_signals = []
+    for signals in top_per_source.values():
+        top_signals.extend(signals)
+    top_signals.sort(key=lambda x: x.get("score", 0), reverse=True)
+    top_signals = top_signals[:60]
     
     if not top_signals:
         return {"narratives": [], "meta": {"signal_count": 0}}
