@@ -5,6 +5,16 @@ from fastapi.responses import FileResponse
 from api.routes import router
 from contextlib import asynccontextmanager
 import os
+import sentry_sdk
+
+# Initialize Sentry if DSN is configured
+_sentry_dsn = os.getenv("SENTRY_DSN", "")
+if _sentry_dsn:
+    sentry_sdk.init(
+        dsn=_sentry_dsn,
+        traces_sample_rate=0.1,
+        environment=os.getenv("ENVIRONMENT", "production"),
+    )
 import asyncio
 import json
 import time

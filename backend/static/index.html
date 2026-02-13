@@ -413,6 +413,12 @@
             .nav-badge { display: none; }
         }
     </style>
+    <script src="https://browser.sentry-cdn.com/8.0.0/bundle.min.js" crossorigin="anonymous"></script>
+    <script>
+        if (typeof Sentry !== 'undefined') {
+            Sentry.init({ dsn: "https://3536aa355800a646a43c003d5e43baf8@o4510503621296128.ingest.de.sentry.io/4510877888938064" });
+        }
+    </script>
 </head>
 <body>
     <!-- Sticky Navigation -->
@@ -550,6 +556,17 @@
     </footer>
 
     <script>
+        // Analytics
+        function trackEvent(event, props = {}) {
+            fetch('/api/analytics', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({event, properties: {...props, url: location.href, referrer: document.referrer}})
+            }).catch(() => {});
+        }
+        trackEvent('page_view', { screen_width: screen.width, screen_height: screen.height });
+    </script>
+    <script>
         if (typeof Chart !== 'undefined') {
             Chart.defaults.color = '#5c5c74';
             Chart.defaults.borderColor = '#1e1e30';
@@ -561,7 +578,7 @@
         let reportGeneratedAt = null;
         let chartInstances = {};
 
-        function toggleAbout() { document.getElementById('about-section').classList.toggle('collapsed'); }
+        function toggleAbout() { document.getElementById('about-section').classList.toggle('collapsed'); trackEvent('about_toggled'); }
 
         setInterval(() => {
             if (!reportGeneratedAt) return;
@@ -599,6 +616,7 @@
                         '<div style="text-align:center;padding:48px;color:var(--text-muted)"><p>No narratives detected yet.</p><br><button class="btn" onclick="generateReport()">Generate Report</button></div>';
                 }
             } catch (e) {
+                if (typeof Sentry !== 'undefined') Sentry.captureException(e);
                 document.getElementById('narratives').innerHTML =
                     '<div style="text-align:center;padding:48px;color:var(--text-muted)"><p>Could not load data.</p><br><button class="btn" onclick="generateReport()">Generate Report</button></div>';
             }
@@ -606,6 +624,7 @@
 
         async function generateReport() {
             if (isGenerating) return;
+            trackEvent('refresh_clicked');
             isGenerating = true;
             document.getElementById('loading-overlay').style.display = 'flex';
             document.querySelectorAll('.btn').forEach(b => b.disabled = true);
@@ -616,6 +635,7 @@
                 renderKPIs(data);
                 renderNarratives(data.narratives || []);
             } catch (e) {
+                if (typeof Sentry !== 'undefined') Sentry.captureException(e);
                 showError(`Failed to generate: ${e.message}`);
             } finally {
                 document.getElementById('loading-overlay').style.display = 'none';
@@ -661,6 +681,7 @@
 
         function applySortFilter() {
             const sort = document.getElementById('sort-select').value;
+            trackEvent('filter_changed', { sort });
             let sorted = [...currentNarratives];
             const confOrder = { high: 0, medium: 1, low: 2 };
             const dirOrder = { accelerating: 0, emerging: 1, stabilizing: 2 };
@@ -890,6 +911,7 @@
             const showing = hidden.style.display !== 'none';
             hidden.style.display = showing ? 'none' : 'block';
             el.textContent = showing ? 'Show all ▼' : 'Show less ▲';
+            trackEvent('narrative_expanded', { card: cardId, expanded: !showing });
         }
 
         // Keyboard navigation
@@ -906,6 +928,14 @@
             cards.forEach(c => c.classList.remove('kb-focus'));
             cards[idx].classList.add('kb-focus');
             cards[idx].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+
+        // Delegated click tracking for signals and ideas
+        document.getElementById('narratives').addEventListener('click', (e) => {
+            const link = e.target.closest('.signal-item a');
+            if (link) { trackEvent('signal_link_clicked', { url: link.href }); return; }
+            const idea = e.target.closest('.idea-card');
+            if (idea) { trackEvent('idea_clicked', { idea: (idea.querySelector('.idea-name') || {}).textContent }); }
         });
 
         loadReport();
