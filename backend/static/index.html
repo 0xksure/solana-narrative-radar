@@ -128,6 +128,8 @@
         .sidebar-trend.accelerating { color: var(--success); }
         .sidebar-trend.emerging { color: var(--warning); }
         .sidebar-trend.stabilizing { color: var(--text-muted); }
+        .sidebar-sources { display: flex; gap: 2px; font-size: 0.65rem; margin-top: 2px; }
+        .sidebar-freshness { font-size: 0.6rem; color: var(--text-muted); margin-top: 1px; }
 
         .status-badge { font-size: 0.625rem; font-weight: 700; padding: 2px 7px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.4px; }
         .status-badge.new { background: rgba(153,69,255,0.25); color: #c4b5fd; box-shadow: 0 0 8px rgba(153,69,255,0.3); animation: glowPulse 2s ease-in-out infinite; }
@@ -451,6 +453,21 @@
         .btn:hover { background: var(--accent-hover); }
         .btn:disabled { background: var(--bg-elevated); color: var(--text-muted); cursor: not-allowed; }
         .btn-sm { padding: 5px 12px; font-size: 0.75rem; }
+
+        /* Investment signals */
+        .risk-indicator { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+        .risk-low { background: var(--success-dim); color: var(--success); }
+        .risk-medium { background: var(--warning-dim); color: var(--warning); }
+        .risk-high { background: rgba(248,113,113,0.12); color: var(--danger); }
+        .key-projects { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+        .key-project-tag { display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; border-radius: 16px; font-size: 0.8rem; font-weight: 500; background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(153,69,255,0.2); text-decoration: none; transition: all 0.15s; }
+        .key-project-tag:hover { background: rgba(153,69,255,0.2); border-color: var(--accent); }
+        .action-buttons { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
+        .action-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: var(--radius-sm); font-size: 0.8125rem; font-weight: 500; text-decoration: none; transition: all 0.15s; border: 1px solid var(--border); color: var(--text-secondary); background: var(--bg-surface); }
+        .action-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+        .why-build-section { background: linear-gradient(135deg, rgba(153,69,255,0.08), rgba(0,209,140,0.08)); border: 1px solid rgba(153,69,255,0.15); border-left: 3px solid var(--accent); border-radius: var(--radius-sm); padding: 16px 18px; margin-bottom: 20px; }
+        .why-build-section .label { color: var(--accent); font-weight: 700; font-size: 0.875rem; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+        .why-build-section .content { color: var(--text-secondary); font-size: 0.875rem; line-height: 1.7; }
     </style>
     <script src="https://browser.sentry-cdn.com/8.0.0/bundle.min.js" crossorigin="anonymous"></script>
     <script>
@@ -689,7 +706,10 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                 </div>` : ''}
                 <p class="detail-explanation">${esc(n.explanation || '')}</p>
                 ${n.trend_evidence ? `<div class="market-opportunity" style="border-left-color:var(--accent)"><div class="label">📊 Why ${n.direction || 'This Trend'}?</div><div class="content" style="white-space:pre-line">${esc(n.trend_evidence)}</div></div>` : ''}
-                ${n.market_opportunity ? `<div class="market-opportunity"><div class="label">💎 Market Opportunity</div><div class="content">${esc(n.market_opportunity)}</div></div>` : ''}
+                ${n.market_opportunity ? `<div class="why-build-section"><div class="label">🏗️ Why Build Here</div><div class="content">${esc(n.market_opportunity)}</div></div>` : ''}
+                ${renderRiskIndicator(n)}
+                ${renderKeyProjects(signals)}
+                ${renderActionButtons(n)}
                 ${renderDetailConfidenceChart(n)}
                 ${hasDC || hasSC ? `<div class="charts-row">
                     <div class="trend-chart-wrap"${!hasDC ? ' style="display:none"' : ''}><canvas id="detail-trend"></canvas><div class="chart-label">Signal Trend (7d)</div></div>
@@ -748,6 +768,10 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                 const trend = ((n.velocity && n.velocity.trend) || n.direction || 'emerging').toLowerCase();
                 const status = (n.status || '').toLowerCase();
                 const statusHtml = status ? `<span class="status-badge ${status}">${status}</span>` : '';
+                const signals = n.supporting_signals || [];
+                const sc = getSourceCounts(signals);
+                const sourceCount = Object.keys(sc).length;
+                const sourceIcons = Object.keys(sc).map(k => SOURCE_ICONS[k] || '📌').join('');
                 return `<div class="sidebar-item" onclick="navigate('narrative-${i}')">
                     <div class="sidebar-item-info">
                         <div class="sidebar-item-name" title="${esc(n.name)}">${esc(n.name)}</div>
@@ -756,6 +780,8 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                             <span class="sidebar-badge ${conf}">${conf}</span>
                             <span class="sidebar-trend ${trend}">${TREND_ARROWS[trend] || '→'} ${trend}</span>
                         </div>
+                        <div class="sidebar-sources">${sourceIcons} <span style="color:var(--text-muted);margin-left:2px">${sourceCount} sources · ${signals.length} signals</span></div>
+                        ${reportGeneratedAt ? `<div class="sidebar-freshness">Updated ${freshness(reportGeneratedAt)}</div>` : ''}
                     </div>
                 </div>`;
             }).join('');
@@ -1064,6 +1090,67 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ['', 'LOW', 'MEDIUM', 'HIGH'][c.parsed.y] || '' } } },
                     scales: { x: { grid: { color: '#1e1e30' }, ticks: { color: '#5c5c74', font: { size: 9 }, maxTicksLimit: 8 } }, y: { grid: { color: '#1e1e30' }, min: 0, max: 4, ticks: { color: '#5c5c74', font: { size: 10 }, stepSize: 1, callback: v => ['', 'LOW', 'MED', 'HIGH', ''][v] || '' } } } }
             });
+        }
+
+        // === INVESTMENT SIGNALS ===
+        function renderRiskIndicator(n) {
+            const conf = CONFIDENCE_ORDER[n.confidence] || 1;
+            const dir = DIRECTION_ORDER[n.direction] || 1;
+            const score = conf + dir;
+            let riskClass, riskText;
+            if (score >= 5) { riskClass = 'risk-low'; riskText = '🟢 Lower Risk — Strong signals, established trend'; }
+            else if (score >= 3) { riskClass = 'risk-medium'; riskText = '🟡 Medium Risk — Growing signals, monitor closely'; }
+            else { riskClass = 'risk-high'; riskText = '🔴 Higher Risk — Early signals, high upside potential'; }
+            return `<div style="margin-bottom:16px"><span class="risk-indicator ${riskClass}">${riskText}</span></div>`;
+        }
+        const CONFIDENCE_ORDER = { HIGH: 3, MEDIUM: 2, LOW: 1 };
+        const DIRECTION_ORDER = { ACCELERATING: 3, EMERGING: 2, STABILIZING: 1 };
+
+        const KNOWN_PROTOCOLS = {
+            'jupiter': 'https://jup.ag', 'jup': 'https://jup.ag',
+            'raydium': 'https://raydium.io', 'orca': 'https://orca.so',
+            'marinade': 'https://marinade.finance', 'jito': 'https://jito.network',
+            'drift': 'https://drift.trade', 'phoenix': 'https://phoenix.trade',
+            'tensor': 'https://tensor.trade', 'phantom': 'https://phantom.app',
+            'backpack': 'https://backpack.exchange', 'pump.fun': 'https://pump.fun',
+            'helium': 'https://helium.com', 'render': 'https://render.com',
+            'pyth': 'https://pyth.network', 'wormhole': 'https://wormhole.com',
+            'marginfi': 'https://marginfi.com', 'kamino': 'https://kamino.finance',
+            'solend': 'https://solend.fi', 'bonk': 'https://bonkcoin.com',
+            'metaplex': 'https://metaplex.com', 'squads': 'https://squads.so',
+            'sanctum': 'https://sanctum.so', 'parcl': 'https://parcl.co',
+        };
+
+        function renderKeyProjects(signals) {
+            const found = new Map();
+            const allText = signals.map(s => typeof s === 'string' ? s : (s.text || s.name || s.content || '')).join(' ').toLowerCase();
+            for (const [name, url] of Object.entries(KNOWN_PROTOCOLS)) {
+                if (allText.includes(name)) found.set(name.charAt(0).toUpperCase() + name.slice(1), url);
+            }
+            if (!found.size) return '';
+            let html = '<div class="detail-section"><div class="detail-section-title">🔑 Key Projects Mentioned</div><div class="key-projects">';
+            for (const [name, url] of found) {
+                html += `<a href="${url}" target="_blank" class="key-project-tag">${name} ↗</a>`;
+            }
+            html += '</div></div>';
+            return html;
+        }
+
+        function renderActionButtons(n) {
+            const name = encodeURIComponent(n.name || '');
+            const topics = (n.topics || []).join(',');
+            // Map narrative to DeFiLlama category
+            const defiLlamaMap = { 'defi': 'Lending', 'trading': 'Dexes', 'staking': 'Liquid+Staking', 'nft': 'NFT+Marketplace', 'gaming': 'Gaming', 'ai_agents': 'AI' };
+            let llamaCategory = 'Solana';
+            for (const [topic, cat] of Object.entries(defiLlamaMap)) {
+                if (topics.includes(topic)) { llamaCategory = cat; break; }
+            }
+            return `<div class="action-buttons">
+                <a href="https://solana.com/ecosystem" target="_blank" class="action-btn">🔍 Explore Ecosystem</a>
+                <a href="https://defillama.com/chain/Solana" target="_blank" class="action-btn">📊 Track on DeFiLlama</a>
+                <a href="https://solana.com/developers" target="_blank" class="action-btn">📚 Solana Docs</a>
+                <a href="https://github.com/search?q=solana+${name}&type=repositories" target="_blank" class="action-btn">🐙 GitHub Repos</a>
+            </div>`;
         }
 
         function toggleSignals(el) {

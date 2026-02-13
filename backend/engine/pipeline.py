@@ -10,6 +10,8 @@ from collectors.defillama_collector import collect_solana_tvl
 from collectors.social_collector import collect_kol_tweets
 from collectors.onchain_collector import collect_onchain_signals
 from collectors.birdeye_collector import collect_birdeye_trending
+from collectors.coingecko_collector import collect_coingecko_trending
+from collectors.solana_ecosystem_collector import collect_solana_ecosystem
 from engine.scorer import score_signals
 from engine.narrative_engine import cluster_narratives, generate_ideas
 from engine.store import save_run, get_signal_velocity, get_stats
@@ -39,10 +41,16 @@ async def run_pipeline() -> Dict:
     print("  [4/7] Collecting on-chain signals...")
     onchain_signals = await collect_onchain_signals()
     
-    print("  [5/7] Collecting Birdeye trending tokens...")
+    print("  [5/9] Collecting Birdeye trending tokens...")
     birdeye_signals = await collect_birdeye_trending()
     
-    all_signals = github_new + github_trending + defi_signals + social_signals + onchain_signals + birdeye_signals
+    print("  [6/9] Collecting CoinGecko trending...")
+    coingecko_signals = await collect_coingecko_trending()
+    
+    print("  [7/9] Collecting Solana ecosystem & governance...")
+    ecosystem_signals = await collect_solana_ecosystem()
+    
+    all_signals = github_new + github_trending + defi_signals + social_signals + onchain_signals + birdeye_signals + coingecko_signals + ecosystem_signals
     print(f"  → Collected {len(all_signals)} raw signals")
     
     # Phase 2: Score signals
@@ -107,6 +115,8 @@ async def run_pipeline() -> Dict:
             "social_signals": len(social_signals),
             "onchain_signals": len(onchain_signals),
             "birdeye_signals": len(birdeye_signals),
+            "coingecko_signals": len(coingecko_signals),
+            "ecosystem_signals": len(ecosystem_signals),
             "high_score_signals": len([s for s in scored if s.get("score", 0) > 60])
         },
         "narratives": store_narratives,

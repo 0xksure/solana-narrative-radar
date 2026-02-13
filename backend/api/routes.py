@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Request, Query
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from typing import Optional, List
 import json
 import os
@@ -513,6 +513,98 @@ async def agent_discover():
         f"Building now captures first-mover advantage in this trend."
     )
     return result
+
+
+@router.get("/digest", summary="Daily digest", description="Returns a markdown summary of top narratives for newsletters or AI agents.")
+async def get_digest(format: Optional[str] = Query("markdown", description="Output format: markdown or text")):
+    """Generate a plain-text/markdown digest of the top narratives."""
+    report = _load_report()
+    if not report:
+        raise HTTPException(status_code=503, detail="No report available yet.")
+
+    narratives = report.get("narratives", [])
+    generated_at = report.get("generated_at", "")
+    sig_summary = report.get("signal_summary", {})
+
+    # Sort by confidence + direction score
+    def _sort_key(n):
+        return (
+            CONFIDENCE_ORDER.get(n.get("confidence", "LOW"), 0) * 10
+            + DIRECTION_ORDER.get(n.get("direction", "EMERGING"), 0) * 5
+            + len(n.get("supporting_signals", []))
+        )
+    sorted_narratives = sorted(narratives, key=_sort_key, reverse=True)[:5]
+
+    lines = []
+    lines.append("# Solana Narrative Radar — Daily Digest")
+    lines.append(f"*Generated: {generated_at}*")
+    lines.append(f"*Signals analyzed: {sig_summary.get('total_collected', 0)} from {len([k for k in sig_summary if k.endswith('_signals') and sig_summary[k]])} sources*")
+    lines.append("")
+
+    for i, n in enumerate(sorted_narratives, 1):
+        direction = n.get("direction", "EMERGING")
+        confidence = n.get("confidence", "MEDIUM")
+        name = n.get("name", "Unknown")
+        explanation = n.get("explanation", "")
+        market_opp = n.get("market_opportunity", "")
+        signals = n.get("supporting_signals", [])
+        status = n.get("status", "ACTIVE")
+
+        # Risk level
+        risk = _compute_risk(confidence, direction)
+
+        lines.append(f"## {i}. [{direction}] {name} ({confidence} confidence)")
+        if status == "FADED":
+            lines.append("⚠️ *This narrative is fading*")
+        lines.append("")
+        lines.append(explanation)
+        lines.append("")
+
+        # Key signals
+        if signals:
+            lines.append("**Key signals:**")
+            for s in signals[:5]:
+                if isinstance(s, dict):
+                    text = s.get("text", s.get("name", ""))
+                    source = s.get("source", "")
+                    url = s.get("url", "")
+                    line = f"- [{source}] {text}"
+                    if url:
+                        line += f" ([link]({url}))"
+                    lines.append(line)
+                else:
+                    lines.append(f"- {s}")
+            lines.append("")
+
+        # Build opportunity
+        if market_opp:
+            lines.append(f"**Build opportunity:** {market_opp}")
+            lines.append("")
+
+        lines.append(f"**Risk level:** {risk}")
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+
+    # Footer
+    lines.append("*Data sources: GitHub, Twitter/X, DeFiLlama, CoinGecko, Solana RPC, Reddit, Birdeye*")
+    lines.append("*API: https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/discover*")
+
+    content = "\n".join(lines)
+    return PlainTextResponse(content, media_type="text/markdown")
+
+
+def _compute_risk(confidence: str, direction: str) -> str:
+    """Compute risk level from confidence and direction."""
+    c = CONFIDENCE_ORDER.get(confidence, 1)
+    d = DIRECTION_ORDER.get(direction, 1)
+    score = c + d
+    if score >= 5:
+        return "🟢 LOW RISK — Strong signals, established trend"
+    elif score >= 3:
+        return "🟡 MEDIUM RISK — Growing signals, monitor closely"
+    else:
+        return "🔴 HIGH RISK — Early signals, high upside potential"
 
 
 router.include_router(agent_router)
