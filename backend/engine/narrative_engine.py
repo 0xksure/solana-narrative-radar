@@ -186,7 +186,7 @@ Respond in JSON format:
       "explanation": "2-3 sentences written for a non-technical audience explaining this narrative.",
       "market_opportunity": "2-3 sentences on the TAM/market size and why this narrative represents a real opportunity for builders and investors.",
       "references": ["https://relevant-protocol.com", "https://docs.example.com/relevant-page"],
-      "supporting_signals": [{"text": "signal description", "url": "https://...", "source": "twitter|github|defillama|reddit|onchain", "comment": "1-2 sentence explanation of why this signal matters for the narrative and what it indicates about the trend"}],
+      "supporting_signals": [{{"text": "signal description", "url": "https://...", "source": "twitter|github|defillama|reddit|onchain", "comment": "1-2 sentence explanation of why this signal matters for the narrative and what it indicates about the trend"}}],
       "topics": ["defi", "ai_agents"]
     }}
   ]
