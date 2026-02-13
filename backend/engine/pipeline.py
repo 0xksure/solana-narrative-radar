@@ -13,6 +13,7 @@ from collectors.birdeye_collector import collect_birdeye_trending
 from engine.scorer import score_signals
 from engine.narrative_engine import cluster_narratives, generate_ideas
 from engine.store import save_run, get_signal_velocity, get_stats
+from engine.narrative_tracker import update_narrative_states
 
 
 async def run_pipeline() -> Dict:
@@ -86,6 +87,10 @@ async def run_pipeline() -> Dict:
         "generated_at": datetime.utcnow().isoformat(),
         "version": "0.1.0"
     }
+    
+    # Enrich narratives with state tracking (NEW/RISING/STABLE/DECLINING/FADED)
+    narratives_with_ideas = update_narrative_states(narratives_with_ideas)
+    report["narratives"] = narratives_with_ideas
     
     # Enrich narratives with velocity data from history
     for n in narratives_with_ideas:
