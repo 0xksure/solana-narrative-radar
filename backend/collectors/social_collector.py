@@ -263,15 +263,18 @@ async def _collect_ecosystem_signals() -> List[Dict]:
         
         # 2. Jupiter aggregator stats
         try:
-            resp = await client.get("https://stats.jup.ag/info/day")
+            resp = await client.get("https://api.jup.ag/tokens/v1/trending")
             if resp.status_code == 200:
                 data = resp.json()
-                if data:
+                tokens = data if isinstance(data, list) else []
+                for token in tokens[:5]:
+                    name = token.get("name", "Unknown")
+                    symbol = token.get("symbol", "?")
                     signals.append({
                         "source": "jupiter",
-                        "signal_type": "dex_stats",
-                        "name": f"Jupiter daily volume: ${data.get('volumeInUSD', 0):,.0f}" if isinstance(data.get('volumeInUSD'), (int, float)) else "Jupiter stats",
-                        "content": json.dumps(data)[:500],
+                        "signal_type": "trending_token",
+                        "name": f"Jupiter trending: {symbol} ({name})",
+                        "content": f"Trending token on Jupiter: {name} ({symbol})",
                         "url": "https://jup.ag",
                         "topics": ["defi", "trading"],
                         "collected_at": datetime.utcnow().isoformat()

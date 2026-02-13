@@ -114,7 +114,7 @@ async def collect_onchain_signals() -> List[Dict]:
         
         # 5. Jupiter trending tokens (public, no API key)
         try:
-            resp = await client.get("https://tokens.jup.ag/tokens?tags=verified&sort_by=daily_volume&limit=10")
+            resp = await client.get("https://api.jup.ag/tokens/v1/trending")
             if resp.status_code == 200:
                 tokens = resp.json() if isinstance(resp.json(), list) else []
                 for token in tokens[:5]:
