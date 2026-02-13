@@ -183,6 +183,17 @@
         .about-col li::before { content: '→ '; color: var(--accent); }
         @media (max-width: 768px) { .about-columns { grid-template-columns: 1fr; } }
 
+        /* === MOBILE TOUCH TARGETS (min 44x44px) === */
+        @media (max-width: 768px) {
+            .filter-bar select { min-height: 44px; padding: 10px 14px; font-size: 0.875rem; }
+            .about-toggle { min-height: 48px; padding: 14px 18px; }
+            .references a { display: inline-block; min-height: 44px; line-height: 44px; padding: 0 8px; }
+            .signal-item a { display: inline-block; min-height: 44px; line-height: 44px; padding: 0 4px; }
+            .badge { min-height: 32px; padding: 8px 14px; }
+            button, [role="button"], .btn { min-height: 44px; min-width: 44px; }
+            .signal-item { padding: 10px 0 10px 12px; }
+        }
+
         /* === NARRATIVE CARDS === */
         .narrative-card {
             background: var(--bg-surface); border: 1px solid var(--border);
