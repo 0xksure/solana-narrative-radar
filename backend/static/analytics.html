@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics — Solana Narrative Radar</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0c0c14; --bg-surface: #12121f; --border: #1e1e30;
+            --text-primary: #e8e8f0; --text-secondary: #8888a0; --text-muted: #5c5c74;
+            --accent: #9945FF; --accent-dim: rgba(153,69,255,0.12);
+            --success: #00d18c; --success-dim: rgba(0,209,140,0.12);
+            --warning: #f5a623; --info: #67b8f9;
+            --radius-md: 10px; --radius-sm: 6px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg-primary); color: var(--text-primary); line-height: 1.6; }
+        .top-nav {
+            position: sticky; top: 0; z-index: 100;
+            background: rgba(12,12,20,0.92); backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            padding: 0 24px; height: 56px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .nav-brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.05rem; color: var(--text-primary); text-decoration: none; }
+        .nav-brand span { color: var(--accent); }
+        .nav-links { display: flex; gap: 6px; }
+        .nav-link { color: var(--text-secondary); text-decoration: none; font-size: 0.8125rem; padding: 6px 12px; border-radius: var(--radius-sm); font-weight: 500; }
+        .nav-link:hover { color: var(--text-primary); background: var(--accent-dim); }
+        .nav-link.active { color: var(--accent); background: var(--accent-dim); }
+        .container { max-width: 1000px; margin: 0 auto; padding: 32px 24px; }
+        h1 { font-size: 1.5rem; margin-bottom: 8px; }
+        .subtitle { color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 24px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 32px; }
+        .card {
+            background: var(--bg-surface); border: 1px solid var(--border);
+            border-radius: var(--radius-md); padding: 20px;
+        }
+        .card-label { font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted); margin-bottom: 4px; }
+        .card-value { font-size: 1.75rem; font-weight: 700; }
+        .card-value.accent { color: var(--accent); }
+        .card-value.success { color: var(--success); }
+        .card-value.warning { color: var(--warning); }
+        .card-value.info { color: var(--info); }
+        .section { margin-bottom: 32px; }
+        .section h2 { font-size: 1rem; font-weight: 600; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 10px 14px; font-size: 0.875rem; border-bottom: 1px solid var(--border); }
+        th { color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        td { color: var(--text-secondary); }
+        .bar { display: inline-block; height: 6px; background: var(--accent); border-radius: 3px; margin-left: 8px; vertical-align: middle; }
+        .empty { color: var(--text-muted); font-style: italic; padding: 20px 0; text-align: center; }
+        .loading { color: var(--text-muted); text-align: center; padding: 40px; }
+    </style>
+</head>
+<body>
+    <nav class="top-nav">
+        <a href="/" class="nav-brand">🔮 Narrative <span>Radar</span></a>
+        <div class="nav-links">
+            <a href="/" class="nav-link">Narratives</a>
+            <a href="/analytics" class="nav-link active">Analytics</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>📊 Analytics Dashboard</h1>
+        <p class="subtitle">Usage metrics and event tracking for Solana Narrative Radar</p>
+
+        <div id="content"><div class="loading">Loading analytics data...</div></div>
+    </div>
+
+    <script>
+    (async () => {
+        try {
+            const [summaryRes, statusRes, historyRes] = await Promise.all([
+                fetch('/api/analytics/summary'),
+                fetch('/api/status'),
+                fetch('/api/history?days=14'),
+            ]);
+
+            const summary = await summaryRes.json();
+            const status = await statusRes.json();
+            const history = await historyRes.json();
+
+            const periods = summary.periods || {};
+            const topEvents = summary.top_events || [];
+            const topReferrers = summary.top_referrers || [];
+            const histDays = (history.history || []);
+            const maxEvents = Math.max(...topEvents.map(e => e.count), 1);
+
+            let html = `
+            <div class="grid">
+                <div class="card"><div class="card-label">Total Events</div><div class="card-value accent">${(summary.total_events || 0).toLocaleString()}</div></div>
+                <div class="card"><div class="card-label">Unique Visitors</div><div class="card-value success">${(summary.unique_visitors || 0).toLocaleString()}</div></div>
+                <div class="card"><div class="card-label">Events Today</div><div class="card-value info">${(periods.today || 0).toLocaleString()}</div></div>
+                <div class="card"><div class="card-label">Events (7d)</div><div class="card-value warning">${(periods['7d'] || 0).toLocaleString()}</div></div>
+            </div>
+
+            <div class="grid">
+                <div class="card"><div class="card-label">Pipeline Status</div><div class="card-value" style="font-size:1.1rem;color:var(--success)">${status.status || 'unknown'}</div></div>
+                <div class="card"><div class="card-label">Signals Collected</div><div class="card-value accent">${(status.signal_count || 0).toLocaleString()}</div></div>
+                <div class="card"><div class="card-label">Narratives Found</div><div class="card-value success">${status.narrative_count || 0}</div></div>
+                <div class="card"><div class="card-label">Last Pipeline Run</div><div class="card-value" style="font-size:0.8rem;color:var(--text-secondary)">${status.last_run ? new Date(status.last_run).toLocaleString() : 'Never'}</div></div>
+            </div>`;
+
+            // Top events table
+            html += `<div class="section"><h2>Top Events</h2>`;
+            if (topEvents.length) {
+                html += `<table><thead><tr><th>Event</th><th>Count</th><th></th></tr></thead><tbody>`;
+                for (const e of topEvents) {
+                    const pct = (e.count / maxEvents) * 100;
+                    html += `<tr><td>${e.event}</td><td>${e.count}</td><td><span class="bar" style="width:${pct}px"></span></td></tr>`;
+                }
+                html += `</tbody></table>`;
+            } else {
+                html += `<div class="empty">No events recorded yet. Events are tracked automatically as users interact with the dashboard.</div>`;
+            }
+            html += `</div>`;
+
+            // Signal history
+            if (histDays.length) {
+                html += `<div class="section"><h2>Signal Collection History (14d)</h2><table><thead><tr><th>Date</th><th>Signals</th><th>Sources</th><th>Narratives</th></tr></thead><tbody>`;
+                for (const d of histDays.slice(-14)) {
+                    html += `<tr><td>${d.date}</td><td>${d.signal_count}</td><td>${d.source_count}</td><td>${d.narrative_count}</td></tr>`;
+                }
+                html += `</tbody></table></div>`;
+            }
+
+            // Top referrers
+            if (topReferrers.length) {
+                html += `<div class="section"><h2>Top Referrers</h2><table><thead><tr><th>Referrer</th><th>Count</th></tr></thead><tbody>`;
+                for (const r of topReferrers) {
+                    html += `<tr><td>${r.referrer}</td><td>${r.count}</td></tr>`;
+                }
+                html += `</tbody></table></div>`;
+            }
+
+            document.getElementById('content').innerHTML = html;
+        } catch (err) {
+            document.getElementById('content').innerHTML = `<div class="empty">Failed to load analytics: ${err.message}</div>`;
+        }
+    })();
+    </script>
+</body>
+</html>

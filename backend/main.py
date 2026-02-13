@@ -163,6 +163,11 @@ async def root():
     return FileResponse(os.path.join(static_dir, "index.html"))
 
 
+@app.get("/analytics")
+async def analytics_page():
+    return FileResponse(os.path.join(static_dir, "analytics.html"))
+
+
 @app.get("/health")
 async def health():
     has_report = os.path.exists(REPORT_PATH)
