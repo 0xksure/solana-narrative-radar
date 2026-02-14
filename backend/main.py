@@ -192,6 +192,9 @@ app.add_middleware(
 
 app.add_middleware(NoCacheHTMLMiddleware)
 
+from rate_limiter import RateLimitMiddleware
+app.add_middleware(RateLimitMiddleware)
+
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     start = time.time()

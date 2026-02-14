@@ -472,6 +472,112 @@
             .nav-badge { display: none; }
         }
 
+        /* === QUICK STATS BAR === */
+        .stats-bar {
+            display: flex; align-items: center; justify-content: center; gap: 18px; flex-wrap: wrap;
+            background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md);
+            padding: 10px 20px; margin-top: 10px; margin-bottom: 20px; font-size: 0.8rem; color: var(--text-secondary);
+        }
+        .stats-bar .stat-item { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+        .stats-bar .stat-value { color: var(--accent); font-weight: 700; }
+        .stats-bar .stat-divider { color: var(--border); }
+
+        /* === SEARCH & FILTER BAR === */
+        .filter-bar {
+            display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+            margin-bottom: 18px; padding: 14px 16px;
+            background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md);
+        }
+        .filter-search {
+            flex: 1; min-width: 180px; padding: 7px 12px; border-radius: var(--radius-sm);
+            border: 1px solid var(--border); background: var(--bg-primary); color: var(--text-primary);
+            font-size: 0.8125rem; font-family: inherit; outline: none; transition: border-color 0.15s;
+        }
+        .filter-search:focus { border-color: var(--accent); }
+        .filter-search::placeholder { color: var(--text-muted); }
+        .filter-group { display: flex; gap: 4px; flex-wrap: wrap; }
+        .filter-group-label { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; align-self: center; margin-right: 2px; }
+        .filter-toggle {
+            padding: 4px 10px; border-radius: 14px; font-size: 0.7rem; font-weight: 600;
+            border: 1px solid var(--border); background: transparent; color: var(--text-muted);
+            cursor: pointer; transition: all 0.15s; text-transform: uppercase; letter-spacing: 0.3px;
+            -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+        }
+        .filter-toggle:hover { border-color: var(--text-secondary); color: var(--text-secondary); }
+        .filter-toggle.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+        .filter-toggle.active-high { border-color: var(--success); color: var(--success); background: var(--success-dim); }
+        .filter-toggle.active-medium { border-color: var(--warning); color: var(--warning); background: var(--warning-dim); }
+        .filter-toggle.active-low { border-color: var(--info); color: var(--info); background: var(--info-dim); }
+        .filter-sort {
+            padding: 5px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+            background: var(--bg-primary); color: var(--text-secondary); font-size: 0.75rem;
+            font-family: inherit; cursor: pointer; outline: none;
+        }
+        .filter-sort:focus { border-color: var(--accent); }
+
+        /* === CARD METRICS === */
+        .card-metrics { display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+        .card-metric { display: flex; align-items: center; gap: 4px; font-size: 0.7rem; color: var(--text-muted); }
+        .card-metric .metric-icon { font-size: 0.75rem; }
+        .signal-count-badge {
+            display: inline-flex; align-items: center; justify-content: center;
+            min-width: 22px; height: 20px; padding: 0 6px;
+            border-radius: 10px; font-size: 0.65rem; font-weight: 700;
+            background: var(--accent-dim); color: var(--accent);
+        }
+        .freshness-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+        .freshness-dot.hot { background: var(--success); box-shadow: 0 0 6px var(--success); }
+        .freshness-dot.warm { background: var(--warning); box-shadow: 0 0 6px var(--warning); }
+        .freshness-dot.cold { background: var(--text-muted); }
+        .trend-arrow { font-weight: 700; font-size: 0.8rem; }
+        .trend-arrow.up { color: var(--success); }
+        .trend-arrow.flat { color: var(--text-muted); }
+        .trend-arrow.down { color: var(--danger); }
+
+        /* === DETAIL SUMMARY BOX === */
+        .detail-summary-box {
+            display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+            background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md);
+            padding: 16px 20px; margin-bottom: 20px;
+        }
+        .summary-stat { display: flex; flex-direction: column; align-items: center; min-width: 70px; }
+        .summary-stat .stat-val { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); }
+        .summary-stat .stat-lbl { font-size: 0.625rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; margin-top: 2px; }
+        .summary-divider { width: 1px; height: 36px; background: var(--border); }
+
+        /* === RELATED NARRATIVES === */
+        .related-narratives { display: flex; flex-wrap: wrap; gap: 8px; }
+        .related-tag {
+            padding: 5px 12px; border-radius: 14px; font-size: 0.75rem; font-weight: 500;
+            background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(153,69,255,0.2);
+            cursor: pointer; transition: all 0.15s; text-decoration: none;
+        }
+        .related-tag:hover { background: rgba(153,69,255,0.2); border-color: var(--accent); }
+
+        /* === MOBILE BOTTOM SHEET === */
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed; left: 0; right: 0; bottom: 0;
+                top: auto !important; width: 100% !important; max-width: 100% !important;
+                height: 70vh; max-height: 70vh;
+                transform: translateY(100%) !important;
+                border-right: none; border-top: 1px solid var(--border);
+                border-radius: 16px 16px 0 0; z-index: 150;
+            }
+            .sidebar.open { transform: translateY(0) !important; }
+            .sidebar-header { border-radius: 16px 16px 0 0; }
+            .sidebar-header::before {
+                content: ''; display: block; width: 36px; height: 4px;
+                background: var(--text-muted); border-radius: 2px;
+                margin: 0 auto 10px; opacity: 0.5;
+            }
+            .filter-bar { padding: 10px 12px; gap: 6px; }
+            .filter-search { min-width: 140px; }
+            .filter-toggle { padding: 6px 12px; font-size: 0.75rem; min-height: 32px; }
+            .stats-bar { padding: 8px 12px; gap: 10px; font-size: 0.7rem; }
+            .detail-summary-box { padding: 12px 14px; gap: 8px; }
+        }
+
         /* Footer inside main */
         .main-footer {
             text-align: center; padding: 28px 24px; color: var(--text-muted);
@@ -566,6 +672,15 @@
                         <span id="countdown-text">loading next update...</span>
                     </div>
                 </div>
+                <div class="stats-bar" id="stats-bar">
+                    <div class="stat-item"><span class="stat-value" id="stat-narratives">-</span> Active Narratives</div>
+                    <span class="stat-divider">|</span>
+                    <div class="stat-item"><span class="stat-value" id="stat-signals-today">-</span> Signals Today</div>
+                    <span class="stat-divider">|</span>
+                    <div class="stat-item"><span class="stat-value" id="stat-projects">-</span> Projects Tracked</div>
+                    <span class="stat-divider">|</span>
+                    <div class="stat-item">Last updated: <span class="stat-value" id="stat-updated">--:--</span></div>
+                </div>
                 <!-- Mobile sticky countdown -->
                 <div id="mobile-countdown" style="display:none;position:sticky;top:0;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:10px 16px;margin-bottom:16px;font-size:0.85rem;color:var(--text-secondary);align-items:center;gap:8px;backdrop-filter:blur(8px)">
                     <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--success);animation:pulse-dot 2s infinite"></span>
@@ -580,6 +695,27 @@
                     <div class="kpi-card"><div class="kpi-label">Narratives</div><div class="kpi-value accent" id="kpi-narratives"><span class="skeleton kpi-skeleton"></span></div></div>
                 </div>
                 <div class="overview-section-title">Detected Narratives</div>
+                <div class="filter-bar" id="filter-bar">
+                    <input type="text" class="filter-search" id="filter-search" placeholder="🔍 Search narratives..." oninput="applyFilters()">
+                    <div class="filter-group">
+                        <span class="filter-group-label">Confidence:</span>
+                        <button class="filter-toggle" data-filter="confidence" data-value="HIGH" onclick="toggleFilter(this)">HIGH</button>
+                        <button class="filter-toggle" data-filter="confidence" data-value="MEDIUM" onclick="toggleFilter(this)">MEDIUM</button>
+                        <button class="filter-toggle" data-filter="confidence" data-value="LOW" onclick="toggleFilter(this)">LOW</button>
+                    </div>
+                    <div class="filter-group">
+                        <span class="filter-group-label">Direction:</span>
+                        <button class="filter-toggle" data-filter="direction" data-value="ACCELERATING" onclick="toggleFilter(this)">ACCELERATING</button>
+                        <button class="filter-toggle" data-filter="direction" data-value="STABLE" onclick="toggleFilter(this)">STABLE</button>
+                        <button class="filter-toggle" data-filter="direction" data-value="EMERGING" onclick="toggleFilter(this)">EMERGING</button>
+                        <button class="filter-toggle" data-filter="direction" data-value="DECELERATING" onclick="toggleFilter(this)">DECELERATING</button>
+                    </div>
+                    <select class="filter-sort" id="filter-sort" onchange="applyFilters()">
+                        <option value="newest">Sort: Newest</option>
+                        <option value="signals">Sort: Most Signals</option>
+                        <option value="confidence">Sort: Highest Confidence</option>
+                    </select>
+                </div>
                 <div class="narrative-grid" id="narrative-grid">
                     <div class="skeleton-card"><div class="skeleton skeleton-line h24 w60"></div><div class="skeleton skeleton-line w80"></div><div class="skeleton skeleton-line w40"></div></div>
                     <div class="skeleton-card"><div class="skeleton skeleton-line h24 w60"></div><div class="skeleton skeleton-line w80"></div><div class="skeleton skeleton-line w40"></div></div>

@@ -721,6 +721,48 @@ def _compute_risk(confidence: str, direction: str) -> str:
 router.include_router(agent_router)
 
 
+# ── API Key & Usage Endpoints ──
+
+@router.post("/keys/register")
+async def register_api_key(request: Request):
+    """Register for a free API key."""
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+
+    name = (body.get("name") or "").strip()
+    email = (body.get("email") or "").strip().lower()
+
+    if not name or not email:
+        raise HTTPException(status_code=400, detail="Both 'name' and 'email' are required")
+    if not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email):
+        raise HTTPException(status_code=400, detail="Invalid email address")
+
+    from rate_limiter import register_key
+    result = await register_key(name, email)
+    if "error" in result:
+        raise HTTPException(status_code=409, detail=result["error"])
+    return result
+
+
+@router.get("/keys/usage")
+async def api_key_usage(key: str = Query(..., description="Your API key")):
+    """Get usage statistics for an API key."""
+    from rate_limiter import get_key_usage
+    result = await get_key_usage(key)
+    if not result:
+        raise HTTPException(status_code=404, detail="API key not found")
+    return result
+
+
+@router.get("/usage/stats")
+async def usage_stats():
+    """Internal monitoring: usage dashboard stats."""
+    from rate_limiter import get_usage_stats
+    return await get_usage_stats()
+
+
 # --- Email Digest Endpoints ---
 
 import re
