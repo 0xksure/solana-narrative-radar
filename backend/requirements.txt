@@ -8,3 +8,4 @@ apscheduler==3.10.4
 pydantic==2.5.3
 sentry-sdk[fastapi]==2.19.2
 psycopg2-binary==2.9.9
+yoyo-migrations
