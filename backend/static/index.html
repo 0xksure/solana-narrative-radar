@@ -212,6 +212,12 @@
         .narrative-grid-card.confidence-high { border-left-color: var(--success); }
         .narrative-grid-card.confidence-medium { border-left-color: var(--warning); }
         .narrative-grid-card.confidence-low { border-left-color: var(--info); }
+        .narrative-grid-card.faded-card { opacity: 0.55; border-left-color: var(--text-muted); }
+        .narrative-grid-card.faded-card:hover { opacity: 0.8; border-color: var(--text-muted); box-shadow: none; }
+        .narrative-grid-card.faded-card .grid-card-name { color: var(--text-secondary); }
+        .faded-section-title { font-size: 0.875rem; font-weight: 600; color: var(--text-muted); margin: 28px 0 14px; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
+        .faded-section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+        .faded-badge { display: inline-block; background: rgba(92,92,116,0.18); color: var(--text-muted); font-size: 0.65rem; font-weight: 700; padding: 2px 7px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.4px; }
         .grid-card-header { display: flex; justify-content: space-between; align-items: start; gap: 8px; margin-bottom: 8px; }
         .grid-card-name { font-size: 1rem; font-weight: 700; color: var(--text-primary); }
         .grid-card-badges { display: flex; gap: 4px; flex-shrink: 0; }
@@ -612,14 +618,20 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
             const el = document.getElementById('countdown-text');
             const dot = el?.previousElementSibling;
             let nextRun = null;
+            let wasRunning = false;
             async function fetchStatus() {
                 try {
                     const r = await fetch('/api/pipeline-status');
                     const d = await r.json();
                     nextRun = d.next_run ? new Date(d.next_run) : null;
-                    if (d.status === 'running' && el) {
-                        el.textContent = 'updating now...';
+                    if (d.status === 'running') {
+                        wasRunning = true;
+                        if (el) { el.textContent = 'updating now...'; el.style.animation = 'pulse 1.5s infinite'; }
                         if (dot) dot.style.background = '#f0b429';
+                    } else if (wasRunning) {
+                        wasRunning = false;
+                        if (el) el.style.animation = '';
+                        loadReport();
                     }
                 } catch(e) {}
             }
@@ -773,8 +785,8 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                     <div class="detail-section-title">Supporting Signals (${signals.length})</div>
                     <div id="detail-signals">
                         ${signals.slice(0, 8).map((s, si) => renderSignal(s, si)).join('')}
-                        ${signals.length > 8 ? `<div class="signals-hidden" style="display:none">${signals.slice(8).map((s, si) => renderSignal(s, 8 + si)).join('')}</div>
-                        <div class="show-all-toggle" onclick="toggleSignals(this)">Show all ${signals.length} signals ▼</div>` : ''}
+                        ${signals.length > 8 ? `<div class="signals-hidden" style="display:none">${signals.slice(8, 15).map((s, si) => renderSignal(s, 8 + si)).join('')}</div>
+                        <div class="show-all-toggle" onclick="toggleSignals(this)">Show ${Math.min(signals.length, 15) - 8} more signals ▼</div>` : ''}
                     </div>
                 </div>` : ''}
                 ${n.ideas && n.ideas.length ? `<div class="ideas-section">
@@ -824,7 +836,8 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                 const sc = getSourceCounts(signals);
                 const sourceCount = Object.keys(sc).length;
                 const sourceIcons = Object.keys(sc).map(k => SOURCE_ICONS[k] || '📌').join('');
-                return `<div class="sidebar-item" onclick="navigate('narrative-${i}')">
+                const isFaded = (status === 'faded');
+                return `<div class="sidebar-item" onclick="navigate('narrative-${i}')" ${isFaded ? 'style="opacity:0.5"' : ''}>
                     <div class="sidebar-item-info">
                         <div class="sidebar-item-name" title="${esc(n.name)}">${esc(n.name)}</div>
                         <div class="sidebar-item-meta">
@@ -846,16 +859,24 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                 grid.innerHTML = '<div style="text-align:center;padding:48px;color:var(--text-muted)"><p>No narratives detected yet.</p><br><button class="btn" onclick="generateReport()">Generate Report</button></div>';
                 return;
             }
-            grid.innerHTML = narratives.map((n, i) => {
+            const active = [], faded = [];
+            narratives.forEach((n, i) => {
+                const isFaded = (n.status || '').toUpperCase() === 'FADED';
+                (isFaded ? faded : active).push({ n, i });
+            });
+
+            function renderCard({ n, i }) {
                 const conf = (n.confidence || 'low').toLowerCase();
+                const isFaded = (n.status || '').toUpperCase() === 'FADED';
                 const signals = n.supporting_signals || [];
                 const sc = getSourceCounts(signals);
                 const trend = ((n.velocity && n.velocity.trend) || n.direction || 'emerging').toLowerCase();
-                return `<div class="narrative-grid-card confidence-${conf}" onclick="navigate('narrative-${i}')">
+                const fadedTime = isFaded && (n.faded_at || n.last_detected) ? `<span style="font-size:0.7rem;color:var(--text-muted)">Faded ${freshness(n.faded_at || n.last_detected)}</span>` : '';
+                return `<div class="narrative-grid-card confidence-${conf}${isFaded ? ' faded-card' : ''}" onclick="navigate('narrative-${i}')">
                     <div class="grid-card-header">
                         <div class="grid-card-name">${esc(n.name)}</div>
                         <div class="grid-card-badges">
-                            ${n.status ? `<span class="status-badge ${(n.status||'').toLowerCase()}">${n.status}</span>` : ''}
+                            ${isFaded ? '<span class="faded-badge">FADED</span>' : (n.status ? `<span class="status-badge ${(n.status||'').toLowerCase()}">${n.status}</span>` : '')}
                             <span class="badge badge-${conf}" style="font-size:0.65rem;padding:2px 8px">${n.confidence}</span>
                         </div>
                     </div>
@@ -865,11 +886,19 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                         <span>·</span>
                         <span>${signals.length} signals</span>
                         ${n.detection_count > 1 ? `<span>· <b>${n.detection_count}×</b> detected</span>` : ''}
+                        ${fadedTime}
                         <div class="grid-card-signals">${Object.keys(sc).map(k => `<span title="${k}">${SOURCE_ICONS[k] || '📌'}</span>`).join('')}</div>
                     </div>
                     ${renderCardSparkline(n, i)}
                 </div>`;
-            }).join('');
+            }
+
+            let html = active.map(renderCard).join('');
+            if (faded.length) {
+                html += `<div class="faded-section-title" style="grid-column:1/-1">👻 Recently Faded (${faded.length})</div>`;
+                html += faded.map(renderCard).join('');
+            }
+            grid.innerHTML = html;
         }
 
         // === KPIs ===
