@@ -18,6 +18,8 @@ ANALYTICS_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "analytic
 
 from engine.narrative_store import (
     load_store, get_active_narratives, get_recently_faded, store_entry_to_api,
+    get_all_narratives, get_narrative_timeline, get_narrative_signals_history,
+    get_narrative_signals_count,
 )
 
 # Rate limiting: track events per hashed IP
@@ -27,21 +29,29 @@ RATE_LIMIT_WINDOW = 3600  # 1 hour
 
 
 @router.get("/narratives")
-async def get_narratives(period: Optional[str] = "current"):
-    """Get detected narratives from the persistent store (ACTIVE + recently FADED)"""
+async def get_narratives(period: Optional[str] = "current", include_historical: bool = False):
+    """Get detected narratives from the persistent store (ACTIVE + recently FADED, optionally all)"""
     try:
         # Try persistent store first
         store = load_store()
         if store.get("narratives"):
-            active = get_active_narratives(store)
-            faded = get_recently_faded(store, hours=24)
-            total_runs = store.get("total_pipeline_runs", 0)
-
-            api_narratives = []
-            for entry in active + faded:
-                api_entry = store_entry_to_api(entry)
-                api_entry["total_pipeline_runs"] = total_runs
-                api_narratives.append(api_entry)
+            if include_historical:
+                all_entries = get_all_narratives(store, include_archived=True)
+                total_runs = store.get("total_pipeline_runs", 0)
+                api_narratives = []
+                for entry in all_entries:
+                    api_entry = store_entry_to_api(entry)
+                    api_entry["total_pipeline_runs"] = total_runs
+                    api_narratives.append(api_entry)
+            else:
+                active = get_active_narratives(store)
+                faded = get_recently_faded(store, hours=24)
+                total_runs = store.get("total_pipeline_runs", 0)
+                api_narratives = []
+                for entry in active + faded:
+                    api_entry = store_entry_to_api(entry)
+                    api_entry["total_pipeline_runs"] = total_runs
+                    api_narratives.append(api_entry)
 
             # Load report for signal_summary and other metadata
             report = {}
@@ -66,6 +76,91 @@ async def get_narratives(period: Optional[str] = "current"):
         if status.get("status") == "running":
             return {"narratives": [], "message": "Generating first report... please wait."}
         return {"narratives": [], "message": "No report generated yet. Run the collector first."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/narratives/all")
+async def get_all_narratives_endpoint():
+    """Get ALL narratives ever detected, grouped by status."""
+    try:
+        all_entries = get_all_narratives(include_archived=True)
+        total_runs = load_store().get("total_pipeline_runs", 0)
+
+        grouped = {"active": [], "faded": [], "historical": []}
+        for entry in all_entries:
+            api_entry = store_entry_to_api(entry)
+            api_entry["total_pipeline_runs"] = total_runs
+            api_entry["id"] = entry.get("id", "")
+            status = entry.get("status", "").upper()
+            if status == "ACTIVE":
+                grouped["active"].append(api_entry)
+            elif status == "FADED":
+                grouped["faded"].append(api_entry)
+            else:
+                grouped["historical"].append(api_entry)
+
+        return {
+            **grouped,
+            "total_ever_detected": len(all_entries),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/narratives/{narrative_id}/timeline")
+async def get_narrative_timeline_endpoint(narrative_id: str):
+    """Get how a narrative evolved over time."""
+    try:
+        snapshots = get_narrative_timeline(narrative_id)
+        if not snapshots:
+            raise HTTPException(status_code=404, detail="No timeline data found")
+
+        total_signals = get_narrative_signals_count(narrative_id)
+        return {
+            "narrative": {
+                "name": snapshots[-1].get("name", "") if snapshots else "",
+                "current_status": snapshots[-1].get("status", "") if snapshots else "",
+            },
+            "snapshots": [
+                {
+                    "date": s.get("snapshot_at", ""),
+                    "status": s.get("status", ""),
+                    "confidence": s.get("confidence", ""),
+                    "direction": s.get("direction", ""),
+                    "signal_count": s.get("signal_count", 0),
+                    "pipeline_run": s.get("pipeline_run"),
+                }
+                for s in snapshots
+            ],
+            "total_signals_ever": total_signals,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/narratives/{narrative_id}/signals")
+async def get_narrative_signals_endpoint(narrative_id: str, limit: int = 100):
+    """Get full signal history for a narrative."""
+    try:
+        history = get_narrative_signals_history(narrative_id, limit=limit)
+        # Get narrative name
+        store = load_store()
+        name = ""
+        for nid, entry in store.get("narratives", {}).items():
+            if nid == narrative_id:
+                name = entry.get("name", "")
+                break
+
+        return {
+            "narrative": name,
+            "signals": [h["signal"] for h in history],
+            "signals_with_meta": history,
+            "total": get_narrative_signals_count(narrative_id),
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

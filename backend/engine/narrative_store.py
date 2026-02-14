@@ -397,14 +397,41 @@ def merge_narratives(new_narratives: List[Dict], store: Dict) -> Dict:
                 entry["status"] = "FADED"
                 entry["faded_at"] = now
 
+    # Never archive — FADED narratives stay FADED forever (historical data)
+    # Old ARCHIVED ones get upgraded to HISTORICAL for queryability
     for entry in store["narratives"].values():
-        if entry.get("status") == "FADED" and entry.get("faded_at"):
-            try:
-                faded_dt = datetime.fromisoformat(entry["faded_at"])
-                if datetime.now(timezone.utc) - faded_dt > timedelta(days=7):
-                    entry["status"] = "ARCHIVED"
-            except (ValueError, TypeError):
-                pass
+        if entry.get("status") == "ARCHIVED":
+            entry["status"] = "HISTORICAL"
+
+    # Record signal history and snapshots in PG
+    if _use_pg():
+        pipeline_run_count = store.get("total_pipeline_runs", 0)
+        try:
+            conn = _get_conn()
+            with conn.cursor() as cur:
+                # Insert signal history for all new signals
+                for n in new_narratives:
+                    name = n.get("name", "")
+                    canon = _canonical(name)
+                    nid = find_match(canon, store) or _stable_id(canon)
+                    for signal in n.get("supporting_signals", []):
+                        cur.execute("""
+                            INSERT INTO narrative_signal_history (narrative_id, signal, pipeline_run, detected_at)
+                            VALUES (%s, %s, %s, NOW())
+                        """, (nid, json.dumps(signal), pipeline_run_count))
+
+                # Insert snapshots for all narratives
+                for nid, entry in store["narratives"].items():
+                    cur.execute("""
+                        INSERT INTO narrative_snapshots (narrative_id, name, status, confidence, direction, signal_count, pipeline_run, snapshot_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+                    """, (nid, entry.get('name', ''), entry.get('status', ''),
+                          entry.get('current_confidence', ''), entry.get('current_direction', ''),
+                          len(entry.get('all_signals', [])), pipeline_run_count))
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            logger.error(f"Failed to record signal history/snapshots: {e}")
 
     return store
 
@@ -511,6 +538,7 @@ def _compute_trending_status(entry: Dict) -> str:
 
 def store_entry_to_api(entry: Dict) -> Dict:
     return {
+        "id": entry.get("id", ""),
         "name": entry.get("name", ""),
         "confidence": entry.get("current_confidence", "MEDIUM"),
         "direction": entry.get("current_direction", "EMERGING"),
@@ -529,3 +557,91 @@ def store_entry_to_api(entry: Dict) -> Dict:
         "direction_history": entry.get("direction_history", []),
         "total_pipeline_runs": 0,
     }
+
+
+def get_all_narratives(store_or_conn=None, include_archived=True):
+    """Get ALL narratives, including faded/historical, sorted by last_detected desc."""
+    if _use_pg():
+        _ensure_tables()
+        conn = _get_conn()
+        try:
+            with conn.cursor() as cur:
+                if include_archived:
+                    cur.execute(f"SELECT {', '.join(_COLUMNS)} FROM narrative_store ORDER BY last_detected DESC NULLS LAST")
+                else:
+                    cur.execute(f"SELECT {', '.join(_COLUMNS)} FROM narrative_store WHERE status IN ('ACTIVE', 'FADED') ORDER BY last_detected DESC NULLS LAST")
+                return [_row_to_entry(row, _COLUMNS) for row in cur.fetchall()]
+        finally:
+            conn.close()
+    # Fallback to in-memory store
+    store = store_or_conn if isinstance(store_or_conn, dict) else load_store()
+    entries = list(store.get("narratives", {}).values())
+    if not include_archived:
+        entries = [e for e in entries if e.get("status") in ("ACTIVE", "FADED")]
+    entries.sort(key=lambda e: e.get("last_detected", ""), reverse=True)
+    return entries
+
+
+def get_narrative_timeline(narrative_id: str) -> List[Dict]:
+    """Get snapshots for a narrative over time."""
+    if not _use_pg():
+        return []
+    conn = _get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT name, status, confidence, direction, signal_count, pipeline_run, snapshot_at
+                FROM narrative_snapshots
+                WHERE narrative_id = %s
+                ORDER BY snapshot_at ASC
+            """, (narrative_id,))
+            cols = ["name", "status", "confidence", "direction", "signal_count", "pipeline_run", "snapshot_at"]
+            rows = []
+            for row in cur.fetchall():
+                d = dict(zip(cols, row))
+                if d.get("snapshot_at") and hasattr(d["snapshot_at"], "isoformat"):
+                    d["snapshot_at"] = d["snapshot_at"].isoformat()
+                rows.append(d)
+            return rows
+    finally:
+        conn.close()
+
+
+def get_narrative_signals_history(narrative_id: str, limit: int = 100) -> List[Dict]:
+    """Get full signal history for a narrative, newest first."""
+    if not _use_pg():
+        return []
+    conn = _get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT signal, pipeline_run, detected_at
+                FROM narrative_signal_history
+                WHERE narrative_id = %s
+                ORDER BY detected_at DESC
+                LIMIT %s
+            """, (narrative_id, limit))
+            results = []
+            for row in cur.fetchall():
+                signal = row[0] if isinstance(row[0], dict) else json.loads(row[0]) if isinstance(row[0], str) else row[0]
+                results.append({
+                    "signal": signal,
+                    "pipeline_run": row[1],
+                    "detected_at": row[2].isoformat() if hasattr(row[2], "isoformat") else str(row[2]),
+                })
+            return results
+    finally:
+        conn.close()
+
+
+def get_narrative_signals_count(narrative_id: str) -> int:
+    """Get total signal count for a narrative from history."""
+    if not _use_pg():
+        return 0
+    conn = _get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM narrative_signal_history WHERE narrative_id = %s", (narrative_id,))
+            return cur.fetchone()[0]
+    finally:
+        conn.close()
