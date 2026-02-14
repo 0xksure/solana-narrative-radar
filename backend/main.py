@@ -1,11 +1,26 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 from api.routes import router
 from contextlib import asynccontextmanager
 import os
+import hashlib
 import sentry_sdk
+
+
+class NoCacheHTMLMiddleware(BaseHTTPMiddleware):
+    """Prevent browser caching of HTML pages so deploys are immediately visible."""
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        content_type = response.headers.get("content-type", "")
+        if "text/html" in content_type:
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+        return response
+
 
 # Initialize Sentry if DSN is configured
 _sentry_dsn = os.getenv("SENTRY_DSN", "")
@@ -168,6 +183,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(NoCacheHTMLMiddleware)
 
 app.include_router(router, prefix="/api")
 
