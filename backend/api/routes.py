@@ -210,8 +210,14 @@ def _check_rate_limit(ip_hash: str) -> bool:
 
 
 @router.post("/analytics")
+async def track_event_legacy(request: Request):
+    """Legacy analytics endpoint — forwards to /analytics/event."""
+    return await track_event(request)
+
+
+@router.post("/analytics/event")
 async def track_event(request: Request):
-    """Store an analytics event."""
+    """Store an analytics event in PostgreSQL."""
     try:
         body = await request.json()
     except Exception:
@@ -229,73 +235,82 @@ async def track_event(request: Request):
 
     _rate_limit[ip_hash].append(time.time())
 
-    record = {
-        "event": event[:100],
-        "properties": body.get("properties", {}),
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "ip_hash": ip_hash,
-        "user_agent": (request.headers.get("user-agent") or "")[:200],
-    }
+    app = body.get("app", "narrative-radar")[:50]
+    properties = body.get("properties", {})
+    session_id = body.get("session_id")
+    user_agent = (request.headers.get("user-agent") or "")[:200]
+    referrer = body.get("referrer") or request.headers.get("referer") or ""
+    path = properties.get("path") or properties.get("page") or ""
 
-    os.makedirs(os.path.dirname(ANALYTICS_PATH), exist_ok=True)
-    with open(ANALYTICS_PATH, "a") as f:
-        f.write(json.dumps(record) + "\n")
+    try:
+        from engine.analytics_db import insert_event
+        await insert_event(
+            app=app, event=event[:100], properties=properties,
+            session_id=session_id, ip_hash=ip_hash,
+            user_agent=user_agent, referrer=referrer[:500], path=path[:500],
+        )
+    except Exception as e:
+        # Fallback to file if DB fails
+        record = {
+            "app": app, "event": event[:100], "properties": properties,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "ip_hash": ip_hash, "user_agent": user_agent,
+        }
+        os.makedirs(os.path.dirname(ANALYTICS_PATH), exist_ok=True)
+        with open(ANALYTICS_PATH, "a") as f:
+            f.write(json.dumps(record) + "\n")
 
     return {"ok": True}
 
 
 @router.get("/analytics/summary")
-async def analytics_summary():
-    """Return aggregated analytics stats."""
-    if not os.path.exists(ANALYTICS_PATH):
-        return {"total_events": 0, "periods": {}, "top_events": [], "unique_visitors": 0, "top_referrers": []}
-
-    now = datetime.now(timezone.utc)
-    events = []
+async def analytics_summary(app: Optional[str] = None, days: int = 30):
+    """Return aggregated analytics stats from PostgreSQL."""
     try:
-        with open(ANALYTICS_PATH) as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    events.append(json.loads(line))
-    except Exception:
-        pass
+        from engine.analytics_db import get_summary
+        return await get_summary(app=app, days=days)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-    # Aggregate
-    event_counts = defaultdict(int)
-    visitors = set()
-    referrers = defaultdict(int)
-    periods = {"today": 0, "7d": 0, "30d": 0}
 
-    for e in events:
-        event_counts[e.get("event", "unknown")] += 1
-        visitors.add(e.get("ip_hash", ""))
-        ref = (e.get("properties") or {}).get("referrer", "")
-        if ref:
-            referrers[ref] += 1
+@router.get("/analytics/events")
+async def analytics_events(app: str = "blog", event: str = "Page View", days: int = 7):
+    """Event breakdown by day."""
+    try:
+        from engine.analytics_db import get_events_breakdown
+        return await get_events_breakdown(app=app, event=event, days=days)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-        try:
-            ts = datetime.fromisoformat(e["timestamp"])
-            age = now - ts
-            if age < timedelta(days=1):
-                periods["today"] += 1
-            if age < timedelta(days=7):
-                periods["7d"] += 1
-            if age < timedelta(days=30):
-                periods["30d"] += 1
-        except Exception:
-            pass
 
-    top_events = sorted(event_counts.items(), key=lambda x: -x[1])[:10]
-    top_referrers = sorted(referrers.items(), key=lambda x: -x[1])[:10]
+@router.get("/analytics/funnel")
+async def analytics_funnel(app: str = "roast-bot", days: int = 30):
+    """Product funnel analysis."""
+    try:
+        from engine.analytics_db import get_funnel
+        return await get_funnel(app=app, days=days)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-    return {
-        "total_events": len(events),
-        "unique_visitors": len(visitors),
-        "periods": periods,
-        "top_events": [{"event": k, "count": v} for k, v in top_events],
-        "top_referrers": [{"referrer": k, "count": v} for k, v in top_referrers],
-    }
+
+@router.get("/analytics/retention")
+async def analytics_retention(app: str = "blog", days: int = 30):
+    """Returning visitor analysis."""
+    try:
+        from engine.analytics_db import get_retention
+        return await get_retention(app=app, days=days)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/analytics/realtime")
+async def analytics_realtime(app: str = "all"):
+    """Real-time analytics (last 30 minutes)."""
+    try:
+        from engine.analytics_db import get_realtime
+        return await get_realtime(app=app)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ── Agent API helpers ──

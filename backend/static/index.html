@@ -467,6 +467,15 @@
         }
         .btn:hover { background: var(--accent-hover); }
         .btn:disabled { background: var(--bg-elevated); color: var(--text-muted); cursor: not-allowed; }
+
+        /* Custom icon classes */
+        .icon-sm { width: 18px; height: 18px; vertical-align: middle; margin-right: 4px; display: inline-block; }
+        .icon-md { width: 24px; height: 24px; vertical-align: middle; margin-right: 6px; display: inline-block; }
+        .icon-lg { width: 32px; height: 32px; vertical-align: middle; margin-right: 8px; display: inline-block; }
+        .risk-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 6px; vertical-align: middle; }
+        .risk-dot.low { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+        .risk-dot.medium { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
+        .risk-dot.high { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
         .btn-sm { padding: 5px 12px; font-size: 0.75rem; }
 
         /* Investment signals */
@@ -517,8 +526,8 @@
                 <h2>Narratives</h2>
                 <span class="sidebar-count" id="sidebar-count">0</span>
             </div>
-            <div class="sidebar-home active" onclick="navigate('')" id="sidebar-home">📊 Overview</div>
-            <div class="sidebar-home" onclick="navigate('agents')" id="sidebar-agents">🤖 For Agents</div>
+            <div class="sidebar-home active" onclick="navigate('')" id="sidebar-home"><img src="/img/chart.png" class="icon-sm"> Overview</div>
+            <div class="sidebar-home" onclick="navigate('agents')" id="sidebar-agents"><img src="/img/radar.png" class="icon-sm"> For Agents</div>
             <div class="sidebar-list" id="sidebar-list"></div>
         </aside>
         <main class="main-content" id="main-content">
@@ -526,7 +535,7 @@
                 <div class="overview-hero">
                     <h1><img src="/img/logo-sm.jpg" alt="" style="width:36px;height:36px;border-radius:8px;vertical-align:middle;margin-right:8px">Narrative Radar</h1>
                     <p style="font-size:1.05rem;color:var(--text-secondary);margin-bottom:6px">Discover what's emerging on Solana before everyone else — AI scans 600+ signals from GitHub, Twitter, DeFiLlama & on-chain data every 2 hours.</p>
-                    <p style="font-size:0.85rem"><a href="https://github.com/0xksure/solana-narrative-radar#readme">How it works →</a> · <a href="#agents" style="color:var(--success);text-decoration:none">🤖 Agent API →</a></p>
+                    <p style="font-size:0.85rem"><a href="https://github.com/0xksure/solana-narrative-radar#readme">How it works →</a> · <a href="#agents" style="color:var(--success);text-decoration:none"><img src="/img/radar.png" class="icon-sm"> Agent API →</a></p>
                     <div id="countdown-bar" style="margin-top:8px;font-size:0.8rem;color:var(--text-secondary);display:flex;align-items:center;gap:6px">
                         <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--success);animation:pulse-dot 2s infinite"></span>
                         <span id="countdown-text">loading next update...</span>
@@ -562,7 +571,7 @@
             </div>
             <div class="detail-view" id="detail-view" style="display:none"></div>
             <div class="detail-view" id="agents-view" style="display:none">
-                <h1 style="margin-bottom:8px">🤖 Agent API</h1>
+                <h1 style="margin-bottom:8px"><img src="/img/radar.png" class="icon-md"> Agent API</h1>
                 <p style="color:var(--text-secondary);margin-bottom:24px">Plug Solana Narrative Radar into your AI agent. Discover what to build on Solana programmatically.</p>
 
                 <div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:20px;margin-bottom:16px">
@@ -684,7 +693,7 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
         let chartInstances = {};
         let isGenerating = false;
 
-        const SOURCE_ICONS = { github: '🐙', twitter: '🐦', defi: '📊', 'on-chain': '⛓️', onchain: '⛓️', reddit: '💬', defillama: '📊', jupiter: '🪐' };
+        const SOURCE_ICONS = { github: '<img src="/img/github.png" class="icon-sm">', twitter: '<img src="/img/social.png" class="icon-sm">', defi: '<img src="/img/chart.png" class="icon-sm">', 'on-chain': '<img src="/img/chain.png" class="icon-sm">', onchain: '<img src="/img/chain.png" class="icon-sm">', reddit: '<img src="/img/social.png" class="icon-sm">', defillama: '<img src="/img/chart.png" class="icon-sm">', jupiter: '<img src="/img/chart.png" class="icon-sm">' };
         const SOURCE_COLORS = { github: '#00d18c', twitter: '#1d9bf0', defillama: '#9945FF', defi: '#9945FF', reddit: '#ff4500', 'on-chain': '#14F195', onchain: '#14F195', jupiter: '#f5a623' };
         const KNOWN_KOLS = ['solana','aeyakovenko','rajgokal','0xmert_','jupiterexchange','driftprotocol','shaboronnikov','armaboronnikov','cburniske','lightcrypto'];
         const TREND_ARROWS = { accelerating: '↗', emerging: '→', stabilizing: '↘' };
@@ -783,8 +792,8 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                     ${n.detection_count > 1 ? `<span>🔁 Detected in <b>${n.detection_count}</b>${n.total_pipeline_runs ? '/' + n.total_pipeline_runs : ''} pipeline runs</span>` : ''}
                 </div>` : ''}
                 <p class="detail-explanation">${esc(n.explanation || '')}</p>
-                ${n.trend_evidence ? `<div class="market-opportunity" style="border-left-color:var(--accent)"><div class="label">📊 Why ${n.direction || 'This Trend'}?</div><div class="content" style="white-space:pre-line">${esc(n.trend_evidence)}</div></div>` : ''}
-                ${n.market_opportunity ? `<div class="why-build-section"><div class="label">🏗️ Why Build Here</div><div class="content">${esc(n.market_opportunity)}</div></div>` : ''}
+                ${n.trend_evidence ? `<div class="market-opportunity" style="border-left-color:var(--accent)"><div class="label"><img src="/img/chart.png" class="icon-sm"> Why ${n.direction || 'This Trend'}?</div><div class="content" style="white-space:pre-line">${esc(n.trend_evidence)}</div></div>` : ''}
+                ${n.market_opportunity ? `<div class="why-build-section"><div class="label"><img src="/img/idea.png" class="icon-sm"> Why Build Here</div><div class="content">${esc(n.market_opportunity)}</div></div>` : ''}
                 ${renderRiskIndicator(n)}
                 ${renderKeyProjects(signals)}
                 ${renderActionButtons(n)}
@@ -804,7 +813,7 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                     </div>
                 </div>` : ''}
                 ${n.ideas && n.ideas.length ? `<div class="ideas-section">
-                    <div class="ideas-title">💡 Build Ideas</div>
+                    <div class="ideas-title"><img src="/img/idea.png" class="icon-sm"> Build Ideas</div>
                     <div class="ideas-subtitle">Product opportunities from AI analysis</div>
                     ${n.ideas.map(renderIdea).join('')}
                 </div>` : ''}
@@ -870,7 +879,7 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
         function renderOverviewGrid(narratives) {
             const grid = document.getElementById('narrative-grid');
             if (!narratives.length) {
-                grid.innerHTML = '<div style="text-align:center;padding:48px;color:var(--text-muted)"><p>No narratives detected yet.</p><br><button class="btn" onclick="generateReport()">Generate Report</button></div>';
+                grid.innerHTML = '<div style="text-align:center;padding:48px;color:var(--text-muted)"><p>No narratives detected yet. The pipeline runs every 2 hours — check back soon.</p></div>';
                 return;
             }
             const active = [], faded = [];
@@ -909,7 +918,7 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
 
             let html = active.map(renderCard).join('');
             if (faded.length) {
-                html += `<div class="faded-section-title" style="grid-column:1/-1">👻 Recently Faded (${faded.length})</div>`;
+                html += `<div class="faded-section-title" style="grid-column:1/-1"><img src="/img/declining.png" class="icon-sm"> Recently Faded (${faded.length})</div>`;
                 html += faded.map(renderCard).join('');
             }
             grid.innerHTML = html;
@@ -1017,7 +1026,7 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
             if (!totalFirst && !totalLast) return '';
             const pct = totalFirst > 0 ? ((totalLast - totalFirst) / totalFirst * 100).toFixed(0) : 0;
             const dir = totalLast >= totalFirst ? 'up' : 'down';
-            return `<span class="narrative-tvl-summary ${dir}">📊 ${formatTVL(totalLast)} (${pct >= 0 ? '+' : ''}${pct}% 30d)</span>`;
+            return `<span class="narrative-tvl-summary ${dir}"><img src="/img/chart.png" class="icon-sm"> ${formatTVL(totalLast)} (${pct >= 0 ? '+' : ''}${pct}% 30d)</span>`;
         }
 
         function renderVelocity(n) {
@@ -1072,7 +1081,7 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                 if (s.forks != null) gh.push(`🍴 ${s.forks}`);
                 parts.push(gh.join(' · '));
                 if (s.pushed_at && (Date.now() - new Date(s.pushed_at).getTime()) < 7 * 86400000)
-                    parts.push('<span class="meta-badge active">🟢 Active</span>');
+                    parts.push('<span class="meta-badge active"><span class="risk-dot low"></span> Active</span>');
             }
             if (s.likes != null || s.retweets != null) {
                 let tw = [];
@@ -1083,8 +1092,8 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                     parts.push('<span class="meta-badge kol">🔷 KOL</span>');
                 // Engagement tier
                 const eng = (s.likes || 0) + (s.retweets || 0);
-                if (eng >= 500) parts.push('<span class="meta-badge" style="border-color:#f59e0b;color:#f59e0b">🔥 Viral</span>');
-                else if (eng >= 100) parts.push('<span class="meta-badge active">📈 High Engagement</span>');
+                if (eng >= 500) parts.push('<span class="meta-badge" style="border-color:#f59e0b;color:#f59e0b"><img src="/img/fire.png" class="icon-sm"> Viral</span>');
+                else if (eng >= 100) parts.push('<span class="meta-badge active"><img src="/img/rising.png" class="icon-sm"> High Engagement</span>');
             }
             if (s.tvl_history && s.tvl_history.length >= 2) {
                 const first = s.tvl_history[0].tvl, last = s.tvl_history[s.tvl_history.length - 1].tvl;
@@ -1101,10 +1110,10 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                 <div class="idea-name">${esc(idea.name)}</div>
                 <div class="idea-desc">${esc(idea.description)}</div>
                 ${renderKeyMetrics(idea.key_metrics)}
-                ${idea.market_analysis ? `<div class="idea-market-analysis">📊 ${esc(idea.market_analysis)}</div>` : ''}
-                ${idea.revenue_model ? `<div class="idea-revenue">💰 ${esc(idea.revenue_model)}</div>` : ''}
+                ${idea.market_analysis ? `<div class="idea-market-analysis"><img src="/img/chart.png" class="icon-sm"> ${esc(idea.market_analysis)}</div>` : ''}
+                ${idea.revenue_model ? `<div class="idea-revenue"><img src="/img/chart.png" class="icon-sm"> ${esc(idea.revenue_model)}</div>` : ''}
                 <div class="idea-meta">${idea.complexity ? `⏱️ ${idea.complexity}` : ''}${idea.target_user ? ` · 👤 ${idea.target_user}` : ''}${idea.solana_integrations ? ` · 🔗 ${idea.solana_integrations.join(', ')}` : ''}</div>
-                ${idea.why_it_wins ? `<div class="idea-why-now"><span class="prefix">📈 Why now:</span> ${esc(idea.why_it_wins)}</div>` : ''}
+                ${idea.why_it_wins ? `<div class="idea-why-now"><span class="prefix"><img src="/img/rising.png" class="icon-sm"> Why now:</span> ${esc(idea.why_it_wins)}</div>` : ''}
                 ${idea.reference_links && idea.reference_links.length ? `<div class="idea-refs">Similar: ${idea.reference_links.map(l => `<a href="${l}" target="_blank">${shortUrl(l)}</a>`).join(', ')}</div>` : ''}
             </div>`;
         }
@@ -1197,9 +1206,9 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
             const dir = DIRECTION_ORDER[n.direction] || 1;
             const score = conf + dir;
             let riskClass, riskText;
-            if (score >= 5) { riskClass = 'risk-low'; riskText = '🟢 Lower Risk — Strong signals, established trend'; }
-            else if (score >= 3) { riskClass = 'risk-medium'; riskText = '🟡 Medium Risk — Growing signals, monitor closely'; }
-            else { riskClass = 'risk-high'; riskText = '🔴 Higher Risk — Early signals, high upside potential'; }
+            if (score >= 5) { riskClass = 'risk-low'; riskText = '<span class="risk-dot low"></span> Lower Risk — Strong signals, established trend'; }
+            else if (score >= 3) { riskClass = 'risk-medium'; riskText = '<span class="risk-dot medium"></span> Medium Risk — Growing signals, monitor closely'; }
+            else { riskClass = 'risk-high'; riskText = '<span class="risk-dot high"></span> Higher Risk — Early signals, high upside potential'; }
             return `<div style="margin-bottom:16px"><span class="risk-indicator ${riskClass}">${riskText}</span></div>`;
         }
         const CONFIDENCE_ORDER = { HIGH: 3, MEDIUM: 2, LOW: 1 };
@@ -1227,7 +1236,7 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                 if (allText.includes(name)) found.set(name.charAt(0).toUpperCase() + name.slice(1), url);
             }
             if (!found.size) return '';
-            let html = '<div class="detail-section"><div class="detail-section-title">🔑 Key Projects Mentioned</div><div class="key-projects">';
+            let html = '<div class="detail-section"><div class="detail-section-title"><img src="/img/chain.png" class="icon-sm"> Key Projects Mentioned</div><div class="key-projects">';
             for (const [name, url] of found) {
                 html += `<a href="${url}" target="_blank" class="key-project-tag">${name} ↗</a>`;
             }
@@ -1245,10 +1254,10 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                 if (topics.includes(topic)) { llamaCategory = cat; break; }
             }
             return `<div class="action-buttons">
-                <a href="https://solana.com/ecosystem" target="_blank" class="action-btn">🔍 Explore Ecosystem</a>
-                <a href="https://defillama.com/chain/Solana" target="_blank" class="action-btn">📊 Track on DeFiLlama</a>
-                <a href="https://solana.com/developers" target="_blank" class="action-btn">📚 Solana Docs</a>
-                <a href="https://github.com/search?q=solana+${name}&type=repositories" target="_blank" class="action-btn">🐙 GitHub Repos</a>
+                <a href="https://solana.com/ecosystem" target="_blank" class="action-btn"><img src="/img/radar.png" class="icon-sm"> Explore Ecosystem</a>
+                <a href="https://defillama.com/chain/Solana" target="_blank" class="action-btn"><img src="/img/chart.png" class="icon-sm"> Track on DeFiLlama</a>
+                <a href="https://solana.com/developers" target="_blank" class="action-btn"><img src="/img/idea.png" class="icon-sm"> Solana Docs</a>
+                <a href="https://github.com/search?q=solana+${name}&type=repositories" target="_blank" class="action-btn"><img src="/img/github.png" class="icon-sm"> GitHub Repos</a>
             </div>`;
         }
 
@@ -1471,9 +1480,9 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
 
         // Analytics
         function trackEvent(event, props = {}) {
-            fetch('/api/analytics', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({event, properties: {...props, url: location.href}}) }).catch(() => {});
+            fetch('/api/analytics/event', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({app: 'narrative-radar', event, properties: {...props, url: location.href}}) }).catch(() => {});
         }
-        trackEvent('page_view', { screen_width: screen.width });
+        trackEvent('Page View', { screen_width: screen.width });
 
         loadReport();
         // Auto-navigate to first narrative if no hash set

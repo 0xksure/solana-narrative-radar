@@ -107,6 +107,22 @@ async def run_pipeline_task():
             _pipeline_running = False
 
 
+async def analytics_rollup_loop():
+    """Run daily analytics rollup at ~midnight UTC."""
+    while True:
+        now = datetime.now(timezone.utc)
+        # Sleep until next midnight + 5 min
+        tomorrow = (now + timedelta(days=1)).replace(hour=0, minute=5, second=0, microsecond=0)
+        await asyncio.sleep((tomorrow - now).total_seconds())
+        try:
+            from engine.analytics_db import run_daily_rollup, cleanup_old_events
+            await run_daily_rollup()
+            await cleanup_old_events(days=90)
+            print("📊 [Analytics] Daily rollup complete, old events cleaned")
+        except Exception as e:
+            print(f"📊 [Analytics] Rollup error: {e}")
+
+
 async def agent_loop():
     """Autonomous agent loop — periodically runs the pipeline."""
     while True:
@@ -125,13 +141,16 @@ async def lifespan(app: FastAPI):
     else:
         print("📊 Cached report found and fresh, serving immediately")
 
-    # Start periodic loop
+    # Start periodic loops
     task = asyncio.create_task(agent_loop())
+    rollup_task = asyncio.create_task(analytics_rollup_loop())
     print(f"🤖 Agent loop started (runs every {AGENT_LOOP_INTERVAL // 3600} hours)")
+    print("📊 Analytics rollup loop started")
 
     yield
 
     task.cancel()
+    rollup_task.cancel()
     print("👋 Agent shutting down...")
 
 
