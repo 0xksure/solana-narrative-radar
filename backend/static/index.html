@@ -975,6 +975,10 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
             const prev = idx > 0 ? currentNarratives[idx - 1] : null;
             const next = idx < currentNarratives.length - 1 ? currentNarratives[idx + 1] : null;
 
+            const relatedNarratives = findRelatedNarratives(n, currentNarratives);
+            const age = n.first_detected ? freshness(n.first_detected) : '?';
+            const firstDate = n.first_detected ? new Date(n.first_detected).toLocaleDateString() : '—';
+
             dv.innerHTML = `
                 <div class="detail-back" onclick="navigate('')">← Back to Overview</div>
                 <div class="detail-header">
@@ -986,11 +990,19 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                         ${renderNarrativeTVLSummary(signals)}
                     </div>
                 </div>
+                <div class="detail-summary-box">
+                    <div class="summary-stat"><div class="stat-val" style="color:var(--accent)">${signals.length}</div><div class="stat-lbl">Signals</div></div>
+                    <div class="summary-divider"></div>
+                    <div class="summary-stat"><div class="stat-val">${(n.existing_projects || []).length}</div><div class="stat-lbl">Projects</div></div>
+                    <div class="summary-divider"></div>
+                    <div class="summary-stat"><div class="stat-val">${(n.ideas || []).length}</div><div class="stat-lbl">Build Ideas</div></div>
+                    <div class="summary-divider"></div>
+                    <div class="summary-stat"><div class="stat-val" style="font-size:0.85rem">${firstDate}</div><div class="stat-lbl">First Seen</div></div>
+                    <div class="summary-divider"></div>
+                    <div class="summary-stat"><div class="stat-val" style="font-size:0.85rem">${age}</div><div class="stat-lbl">Age</div></div>
+                    ${n.detection_count > 1 ? `<div class="summary-divider"></div><div class="summary-stat"><div class="stat-val">${n.detection_count}×</div><div class="stat-lbl">Detected</div></div>` : ''}
+                </div>
                 ${renderVelocity(n)}
-                ${n.detection_count ? `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;font-size:0.8rem;color:var(--text-muted)">
-                    ${n.first_detected ? `<span>📅 First detected: ${freshness(n.first_detected)}</span>` : ''}
-                    ${n.detection_count > 1 ? `<span>🔁 Detected in <b>${n.detection_count}</b>${n.total_pipeline_runs ? '/' + n.total_pipeline_runs : ''} pipeline runs</span>` : ''}
-                </div>` : ''}
                 <p class="detail-explanation">${esc(n.explanation || '')}</p>
                 ${n.trend_evidence ? `<div class="market-opportunity" style="border-left-color:var(--accent)"><div class="label"><img src="/img/chart.png" class="icon-sm"> Why ${n.direction || 'This Trend'}?</div><div class="content" style="white-space:pre-line">${esc(n.trend_evidence)}</div></div>` : ''}
                 ${n.market_opportunity ? `<div class="why-build-section"><div class="label"><img src="/img/idea.png" class="icon-sm"> Why Build Here</div><div class="content">${esc(n.market_opportunity)}</div></div>` : ''}
@@ -1033,6 +1045,15 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                 ${n.references && n.references.length ? `<div class="references">
                     <div class="label">References</div>
                     ${n.references.map(r => { const url = typeof r === 'string' ? r : r.url; const label = (typeof r === 'object' && r.title) ? r.title : shortUrl(url); return `<a href="${url}" target="_blank">${label}</a>`; }).join('')}
+                </div>` : ''}
+                ${relatedNarratives.length ? `<div class="detail-section">
+                    <div class="detail-section-title">Related Narratives</div>
+                    <div class="related-narratives">
+                        ${relatedNarratives.map(rn => {
+                            const ri = currentNarratives.indexOf(rn);
+                            return `<a class="related-tag" onclick="navigate('narrative-${ri}')">${esc(rn.name)} <span class="badge badge-${(rn.confidence||'low').toLowerCase()}" style="font-size:0.55rem;padding:1px 5px;margin-left:4px">${rn.confidence}</span></a>`;
+                        }).join('')}
+                    </div>
                 </div>` : ''}
                 <div class="detail-nav">
                     <button class="detail-nav-btn" ${!prev ? 'disabled' : `onclick="navigate('narrative-${idx-1}')"`}>
@@ -1091,12 +1112,15 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
         // === GRID CARDS ===
         function renderOverviewGrid(narratives) {
             const grid = document.getElementById('narrative-grid');
-            if (!narratives.length) {
-                grid.innerHTML = '<div style="text-align:center;padding:48px;color:var(--text-muted)"><p>No narratives detected yet. The pipeline runs every 2 hours — check back soon.</p></div>';
+            const filtered = getFilteredNarratives(narratives);
+            if (!filtered.length) {
+                grid.innerHTML = '<div style="text-align:center;padding:48px;color:var(--text-muted)"><p>No narratives match your filters. Try adjusting search or filters above.</p></div>';
                 return;
             }
             const active = [], faded = [];
-            narratives.forEach((n, i) => {
+            // Build index map back to original narratives array for navigation
+            filtered.forEach(n => {
+                const i = narratives.indexOf(n);
                 const isFaded = (n.status || '').toUpperCase() === 'FADED';
                 (isFaded ? faded : active).push({ n, i });
             });
@@ -1108,22 +1132,29 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                 const sc = getSourceCounts(signals);
                 const trend = ((n.velocity && n.velocity.trend) || n.direction || 'emerging').toLowerCase();
                 const fadedTime = isFaded && (n.faded_at || n.last_detected) ? `<span style="font-size:0.7rem;color:var(--text-muted)">Faded ${freshness(n.faded_at || n.last_detected)}</span>` : '';
+                const projectCount = (n.existing_projects || []).length;
+                const fr = getSignalFreshness(n);
+                const trendArrow = getCardTrendArrow(n);
                 return `<div class="narrative-grid-card confidence-${conf}${isFaded ? ' faded-card' : ''}" onclick="navigate('narrative-${i}')">
                     <div class="grid-card-header">
                         <div class="grid-card-name">${esc(n.name)}</div>
                         <div class="grid-card-badges">
+                            <span class="signal-count-badge" title="${signals.length} signals">${signals.length}</span>
                             ${isFaded ? '<span class="faded-badge">FADED</span>' : (n.status ? `<span class="status-badge ${(n.status||'').toLowerCase()}">${n.status}</span>` : '')}
                             <span class="badge badge-${conf}" style="font-size:0.65rem;padding:2px 8px">${n.confidence}</span>
                         </div>
                     </div>
                     <div class="grid-card-desc">${esc(n.explanation || '')}</div>
+                    <div class="card-metrics">
+                        <span class="card-metric"><span class="freshness-dot ${fr.cls}"></span> ${fr.text}</span>
+                        ${projectCount ? `<span class="card-metric">🏗️ ${projectCount} project${projectCount > 1 ? 's' : ''}</span>` : ''}
+                        <span class="card-metric"><span class="trend-arrow ${trendArrow.cls}">${trendArrow.arrow}</span> signals</span>
+                        <div class="grid-card-signals">${Object.keys(sc).map(k => `<span title="${k}">${SOURCE_ICONS[k] || '📌'}</span>`).join('')}</div>
+                    </div>
                     <div class="grid-card-footer">
                         <span class="sidebar-trend ${trend}" style="font-size:0.75rem">${TREND_ARROWS[trend] || '→'} ${trend}</span>
-                        <span>·</span>
-                        <span>${signals.length} signals</span>
                         ${n.detection_count > 1 ? `<span>· <b>${n.detection_count}×</b> detected</span>` : ''}
                         ${fadedTime}
-                        <div class="grid-card-signals">${Object.keys(sc).map(k => `<span title="${k}">${SOURCE_ICONS[k] || '📌'}</span>`).join('')}</div>
                     </div>
                     ${renderCardSparkline(n, i)}
                 </div>`;
@@ -1640,6 +1671,7 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                 if (data.narratives && data.narratives.length > 0) {
                     currentNarratives = data.narratives;
                     renderKPIs(data);
+                    updateStatsBar(data);
                     renderSidebar(data.narratives);
                     renderOverviewGrid(data.narratives);
                     requestAnimationFrame(createCardSparklines);
@@ -1852,6 +1884,136 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
             } catch(e) { /* timeline is optional enhancement */ }
         };
 
+        // === FILTER & SEARCH ===
+        let activeFilters = { confidence: [], direction: [] };
+
+        function initFiltersFromURL() {
+            const p = new URLSearchParams(window.location.search);
+            const q = p.get('q'); if (q) document.getElementById('filter-search').value = q;
+            const conf = p.get('confidence'); if (conf) activeFilters.confidence = conf.split(',');
+            const dir = p.get('direction'); if (dir) activeFilters.direction = dir.split(',');
+            const sort = p.get('sort'); if (sort) document.getElementById('filter-sort').value = sort;
+            document.querySelectorAll('.filter-toggle').forEach(btn => {
+                const f = btn.dataset.filter, v = btn.dataset.value;
+                if (activeFilters[f] && activeFilters[f].includes(v)) {
+                    btn.classList.add('active');
+                    if (f === 'confidence') btn.classList.add('active-' + v.toLowerCase());
+                }
+            });
+        }
+
+        function persistFiltersToURL() {
+            const p = new URLSearchParams(window.location.search);
+            const q = document.getElementById('filter-search').value.trim();
+            q ? p.set('q', q) : p.delete('q');
+            activeFilters.confidence.length ? p.set('confidence', activeFilters.confidence.join(',')) : p.delete('confidence');
+            activeFilters.direction.length ? p.set('direction', activeFilters.direction.join(',')) : p.delete('direction');
+            const sort = document.getElementById('filter-sort').value;
+            sort !== 'newest' ? p.set('sort', sort) : p.delete('sort');
+            const qs = p.toString();
+            const newUrl = window.location.pathname + (qs ? '?' + qs : '') + window.location.hash;
+            history.replaceState(null, '', newUrl);
+        }
+
+        function toggleFilter(btn) {
+            const f = btn.dataset.filter, v = btn.dataset.value;
+            const idx = activeFilters[f].indexOf(v);
+            if (idx >= 0) {
+                activeFilters[f].splice(idx, 1);
+                btn.classList.remove('active', 'active-high', 'active-medium', 'active-low');
+            } else {
+                activeFilters[f].push(v);
+                btn.classList.add('active');
+                if (f === 'confidence') btn.classList.add('active-' + v.toLowerCase());
+            }
+            applyFilters();
+        }
+
+        function applyFilters() {
+            persistFiltersToURL();
+            renderOverviewGrid(currentNarratives);
+            requestAnimationFrame(createCardSparklines);
+        }
+
+        function getFilteredNarratives(narratives) {
+            const q = (document.getElementById('filter-search')?.value || '').trim().toLowerCase();
+            const sortEl = document.getElementById('filter-sort');
+            const sort = sortEl ? sortEl.value : 'newest';
+            let filtered = narratives.filter(n => {
+                if (q && !n.name.toLowerCase().includes(q)) return false;
+                if (activeFilters.confidence.length && !activeFilters.confidence.includes((n.confidence || '').toUpperCase())) return false;
+                if (activeFilters.direction.length) {
+                    const nDir = (n.direction || '').toUpperCase();
+                    const mapped = nDir === 'STABILIZING' ? 'STABLE' : nDir === 'DECLINING' ? 'DECELERATING' : nDir;
+                    if (!activeFilters.direction.includes(mapped)) return false;
+                }
+                return true;
+            });
+            const confOrd = { HIGH: 3, MEDIUM: 2, LOW: 1 };
+            if (sort === 'signals') filtered.sort((a, b) => (b.supporting_signals || []).length - (a.supporting_signals || []).length);
+            else if (sort === 'confidence') filtered.sort((a, b) => (confOrd[b.confidence] || 0) - (confOrd[a.confidence] || 0));
+            return filtered;
+        }
+
+        function updateStatsBar(data) {
+            const narratives = data.narratives || [];
+            const active = narratives.filter(n => (n.status || '').toUpperCase() !== 'FADED');
+            document.getElementById('stat-narratives').textContent = active.length;
+            const today = new Date().toISOString().slice(0, 10);
+            let todaySignals = 0;
+            narratives.forEach(n => {
+                if (n.velocity && n.velocity.daily_counts && n.velocity.daily_counts[today])
+                    todaySignals += n.velocity.daily_counts[today];
+            });
+            document.getElementById('stat-signals-today').textContent = todaySignals;
+            let projectCount = 0;
+            narratives.forEach(n => { projectCount += (n.existing_projects || []).length; });
+            document.getElementById('stat-projects').textContent = projectCount;
+            if (data.generated_at) {
+                try {
+                    const d = new Date(data.generated_at);
+                    document.getElementById('stat-updated').textContent = d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
+                } catch(e) {}
+            }
+        }
+
+        function getSignalFreshness(n) {
+            const dc = n.velocity && n.velocity.daily_counts;
+            let latestMs = 0;
+            if (dc) {
+                const dates = Object.keys(dc).sort();
+                if (dates.length) try { latestMs = new Date(dates[dates.length - 1]).getTime(); } catch(e) {}
+            }
+            if (!latestMs && n.first_detected) try { latestMs = new Date(n.first_detected).getTime(); } catch(e) {}
+            if (!latestMs) return { cls: 'cold', text: '?' };
+            const ago = Date.now() - latestMs;
+            if (ago < 6 * 3600000) return { cls: 'hot', text: 'Fresh' };
+            if (ago < 24 * 3600000) return { cls: 'warm', text: freshness(new Date(latestMs).toISOString()) };
+            return { cls: 'cold', text: freshness(new Date(latestMs).toISOString()) };
+        }
+
+        function getCardTrendArrow(n) {
+            if (!n.velocity || !n.velocity.daily_counts) return { arrow: '→', cls: 'flat' };
+            const dates = Object.keys(n.velocity.daily_counts).sort();
+            if (dates.length < 2) return { arrow: '→', cls: 'flat' };
+            const last = n.velocity.daily_counts[dates[dates.length - 1]] || 0;
+            const prev = n.velocity.daily_counts[dates[dates.length - 2]] || 0;
+            if (last > prev) return { arrow: '↑', cls: 'up' };
+            if (last < prev) return { arrow: '↓', cls: 'down' };
+            return { arrow: '→', cls: 'flat' };
+        }
+
+        function findRelatedNarratives(narrative, allNarratives) {
+            const keywords = (narrative.name || '').toLowerCase().split(/[\s\-\/&,]+/).filter(w => w.length > 3);
+            if (!keywords.length) return [];
+            return allNarratives.filter(n => {
+                if (n.name === narrative.name) return false;
+                const name = n.name.toLowerCase();
+                return keywords.some(k => name.includes(k));
+            }).slice(0, 5);
+        }
+
+        initFiltersFromURL();
         loadReport();
         // Auto-navigate to first narrative if no hash set
         function autoSelectFirst() {
