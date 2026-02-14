@@ -166,6 +166,7 @@
         /* === OVERVIEW (HOME) === */
         .overview { padding: 32px; max-width: 1100px; margin: 0 auto; animation: fadeIn 0.3s ease; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes pulse-dot { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
         .overview-hero { margin-bottom: 28px; }
         .overview-hero h1 { font-size: 1.75rem; font-weight: 700; margin-bottom: 4px; }
         .overview-hero p { color: var(--text-secondary); font-size: 0.9rem; }
@@ -519,6 +520,10 @@
                     <h1><img src="/img/logo-sm.jpg" alt="" style="width:36px;height:36px;border-radius:8px;vertical-align:middle;margin-right:8px">Narrative Radar</h1>
                     <p style="font-size:1.05rem;color:var(--text-secondary);margin-bottom:6px">Discover what's emerging on Solana before everyone else — AI scans 600+ signals from GitHub, Twitter, DeFiLlama & on-chain data every 2 hours.</p>
                     <p style="font-size:0.85rem"><a href="https://github.com/0xksure/solana-narrative-radar#readme">How it works →</a> · <a href="#agents" style="color:var(--success);text-decoration:none">🤖 Agent API →</a></p>
+                    <div id="countdown-bar" style="margin-top:8px;font-size:0.8rem;color:var(--text-secondary);display:flex;align-items:center;gap:6px">
+                        <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--success);animation:pulse-dot 2s infinite"></span>
+                        <span id="countdown-text">loading next update...</span>
+                    </div>
                 </div>
                 <div class="kpi-grid" id="kpi-grid">
                     <div class="kpi-card"><div class="kpi-label">Total Signals</div><div class="kpi-value" id="kpi-total"><span class="skeleton kpi-skeleton"></span></div><div class="kpi-change" id="kpi-total-change"></div></div>
@@ -602,6 +607,46 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
     <div id="error-toast" style="display:none" class="error-toast"></div>
 
     <script>
+        // Countdown timer
+        (function initCountdown() {
+            const el = document.getElementById('countdown-text');
+            const dot = el?.previousElementSibling;
+            let nextRun = null;
+            async function fetchStatus() {
+                try {
+                    const r = await fetch('/api/pipeline-status');
+                    const d = await r.json();
+                    nextRun = d.next_run ? new Date(d.next_run) : null;
+                    if (d.status === 'running' && el) {
+                        el.textContent = 'updating now...';
+                        if (dot) dot.style.background = '#f0b429';
+                    }
+                } catch(e) {}
+            }
+            function tick() {
+                if (!el || !nextRun) return;
+                const diff = nextRun - Date.now();
+                if (diff <= 0) {
+                    el.textContent = 'updating soon...';
+                    if (dot) dot.style.background = '#f0b429';
+                    setTimeout(fetchStatus, 30000);
+                    return;
+                }
+                if (dot) dot.style.background = 'var(--success)';
+                const h = Math.floor(diff / 3600000);
+                const m = Math.floor((diff % 3600000) / 60000);
+                const s = Math.floor((diff % 60000) / 1000);
+                el.textContent = h > 0
+                    ? `next update in ${h}h ${m}m`
+                    : m > 0
+                    ? `next update in ${m}m ${s}s`
+                    : `next update in ${s}s`;
+            }
+            fetchStatus();
+            setInterval(tick, 1000);
+            setInterval(fetchStatus, 120000);
+        })();
+
         if (typeof Chart !== 'undefined') {
             Chart.defaults.color = '#5c5c74';
             Chart.defaults.borderColor = '#1e1e30';

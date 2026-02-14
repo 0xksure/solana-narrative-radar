@@ -205,3 +205,15 @@ async def health():
         "has_report": has_report,
         "last_run": last_run
     }
+
+
+@app.get("/api/pipeline-status")
+async def pipeline_status():
+    """Return pipeline status including next update time."""
+    status = _load_status()
+    return {
+        "next_run": status.get("next_run"),
+        "status": status.get("status", "unknown"),
+        "last_completed": status.get("completed_at"),
+        "loop_interval_hours": AGENT_LOOP_INTERVAL // 3600,
+    }
