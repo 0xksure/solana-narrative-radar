@@ -433,6 +433,7 @@
             }
             .sidebar.open { transform: translateX(0); }
             .nav-links .nav-link { display: none; }
+            #mobile-countdown { display: flex !important; }
             .overview { padding: 20px 16px; }
             .detail-view { padding: 20px 16px; }
             .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
@@ -531,6 +532,11 @@
                         <span id="countdown-text">loading next update...</span>
                     </div>
                 </div>
+                <!-- Mobile sticky countdown -->
+                <div id="mobile-countdown" style="display:none;position:sticky;top:0;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:10px 16px;margin-bottom:16px;font-size:0.85rem;color:var(--text-secondary);align-items:center;gap:8px;backdrop-filter:blur(8px)">
+                    <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--success);animation:pulse-dot 2s infinite"></span>
+                    <span id="mobile-countdown-text">loading...</span>
+                </div>
                 <div class="kpi-grid" id="kpi-grid">
                     <div class="kpi-card"><div class="kpi-label">Total Signals</div><div class="kpi-value" id="kpi-total"><span class="skeleton kpi-skeleton"></span></div><div class="kpi-change" id="kpi-total-change"></div></div>
                     <div class="kpi-card"><div class="kpi-label">GitHub</div><div class="kpi-value" id="kpi-github"><span class="skeleton kpi-skeleton"></span></div></div>
@@ -616,7 +622,11 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
         // Countdown timer
         (function initCountdown() {
             const el = document.getElementById('countdown-text');
+            const mobileEl = document.getElementById('mobile-countdown-text');
             const dot = el?.previousElementSibling;
+            const mobileDot = mobileEl?.previousElementSibling;
+            function setText(text) { if (el) el.textContent = text; if (mobileEl) mobileEl.textContent = text; }
+            function setDotColor(color) { if (dot) dot.style.background = color; if (mobileDot) mobileDot.style.background = color; }
             let nextRun = null;
             let wasRunning = false;
             async function fetchStatus() {
@@ -626,11 +636,14 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                     nextRun = d.next_run ? new Date(d.next_run) : null;
                     if (d.status === 'running') {
                         wasRunning = true;
-                        if (el) { el.textContent = 'updating now...'; el.style.animation = 'pulse 1.5s infinite'; }
-                        if (dot) dot.style.background = '#f0b429';
+                        setText('updating now...');
+                        if (el) el.style.animation = 'pulse 1.5s infinite';
+                        if (mobileEl) mobileEl.style.animation = 'pulse 1.5s infinite';
+                        setDotColor('#f0b429');
                     } else if (wasRunning) {
                         wasRunning = false;
                         if (el) el.style.animation = '';
+                        if (mobileEl) mobileEl.style.animation = '';
                         loadReport();
                     }
                 } catch(e) {}
@@ -639,20 +652,21 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                 if (!el || !nextRun) return;
                 const diff = nextRun - Date.now();
                 if (diff <= 0) {
-                    el.textContent = 'updating soon...';
-                    if (dot) dot.style.background = '#f0b429';
+                    setText('updating soon...');
+                    setDotColor('#f0b429');
                     setTimeout(fetchStatus, 30000);
                     return;
                 }
-                if (dot) dot.style.background = 'var(--success)';
+                setDotColor('var(--success)');
                 const h = Math.floor(diff / 3600000);
                 const m = Math.floor((diff % 3600000) / 60000);
                 const s = Math.floor((diff % 60000) / 1000);
-                el.textContent = h > 0
+                const text = h > 0
                     ? `next update in ${h}h ${m}m`
                     : m > 0
                     ? `next update in ${m}m ${s}s`
                     : `next update in ${s}s`;
+                setText(text);
             }
             fetchStatus();
             setInterval(tick, 1000);
