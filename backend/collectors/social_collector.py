@@ -1,6 +1,7 @@
 """Collect social signals from X/Twitter and other sources"""
 import subprocess
 import json
+import math
 import httpx
 import os
 import re
@@ -474,8 +475,99 @@ def _parse_xbird_output(output: str) -> List[Dict]:
     return tweets
 
 
+def _compute_relevance_score(signal: Dict) -> float:
+    """Compute a relevance score for a social signal based on engagement, author, and content quality."""
+    score = 0.0
+    content = signal.get("content", "")
+    content_lower = content.lower()
+    author = signal.get("author", "").lower()
+    
+    # Engagement scoring (logarithmic to avoid outlier dominance)
+    engagement = signal.get("engagement", 0)
+    likes = signal.get("likes", 0)
+    retweets = signal.get("retweets", 0)
+    if engagement > 0:
+        score += min(math.log2(engagement + 1) * 5, 40)  # cap at 40
+    
+    # Retweet bonus (retweets signal broader reach)
+    if retweets > 10:
+        score += min(math.log2(retweets) * 3, 15)
+    
+    # KOL author bonus
+    kol_lower = {k.lower() for k in SOLANA_KOLS}
+    if author in kol_lower:
+        score += 25
+    
+    # Content quality: longer substantive content scores higher
+    word_count = len(content.split())
+    if word_count > 20:
+        score += 10
+    elif word_count > 10:
+        score += 5
+    
+    # Actionable language bonus
+    actionable_terms = ["launching", "shipped", "introducing", "announcing", "building",
+                        "integrating", "partnering", "upgrade", "migration", "live on",
+                        "just deployed", "new feature", "proposal", "governance"]
+    if any(term in content_lower for term in actionable_terms):
+        score += 15
+    
+    # Multi-topic signals are more interesting
+    topics = signal.get("topics", [])
+    if len(topics) > 1 and "other" not in topics:
+        score += 5 * (len(topics) - 1)
+    
+    # Penalize generic/low-value patterns
+    if re.search(r'(?:gm|gn|wen|wagmi)\b', content_lower) and word_count < 10:
+        score -= 20
+    
+    # Penalize pure retweet/quote without commentary
+    if content_lower.startswith("rt @") and word_count < 8:
+        score -= 15
+    
+    return max(score, 0)
+
+
+def _fuzzy_dedup(signals: List[Dict], threshold: float = 0.7) -> List[Dict]:
+    """Remove near-duplicate signals using token overlap similarity.
+    
+    Keeps the signal with the higher relevance_score from each duplicate pair.
+    """
+    if len(signals) <= 1:
+        return signals
+    
+    # Tokenize all signals
+    tokenized = []
+    for s in signals:
+        text = re.sub(r'https?://\S+', '', s.get("content", "")).lower()
+        tokens = set(re.findall(r'[a-z0-9]{3,}', text))
+        tokenized.append(tokens)
+    
+    keep = [True] * len(signals)
+    for i in range(len(signals)):
+        if not keep[i]:
+            continue
+        for j in range(i + 1, len(signals)):
+            if not keep[j]:
+                continue
+            if not tokenized[i] or not tokenized[j]:
+                continue
+            # Jaccard similarity
+            intersection = len(tokenized[i] & tokenized[j])
+            union = len(tokenized[i] | tokenized[j])
+            if union > 0 and intersection / union >= threshold:
+                # Keep the one with higher relevance score
+                if signals[i].get("relevance_score", 0) >= signals[j].get("relevance_score", 0):
+                    keep[j] = False
+                else:
+                    keep[i] = False
+                    break
+    
+    return [s for s, k in zip(signals, keep) if k]
+
+
 def filter_spam(signals: List[Dict]) -> List[Dict]:
-    """Filter out bot/spam tweets from collected signals."""
+    """Filter out bot/spam tweets, score relevance, and deduplicate."""
     seen_texts = set()
     filtered = []
     
@@ -505,13 +597,30 @@ def filter_spam(signals: List[Dict]) -> List[Dict]:
         if any(kw in content_lower for kw in ("openclaw", "clawver", "clawd", "clawdbot")):
             continue
         
-        # Deduplicate near-identical content (normalize whitespace for comparison)
+        # Skip generic engagement-bait
+        if re.match(r'^(gm|gn|wagmi|lfg|bullish)\s*[!.]*$', content.strip(), re.I):
+            continue
+        
+        # Skip "follow me" / promo spam
+        if re.search(r'follow\s+(me|us|back)', content_lower) and len(content) < 100:
+            continue
+        
+        # Deduplicate exact matches (normalize whitespace for comparison)
         normalized = re.sub(r'\s+', ' ', content.strip().lower())[:200]
         if normalized in seen_texts:
             continue
         seen_texts.add(normalized)
         
+        # Compute and attach relevance score
+        signal["relevance_score"] = _compute_relevance_score(signal)
+        
         filtered.append(signal)
+    
+    # Fuzzy deduplication pass
+    filtered = _fuzzy_dedup(filtered)
+    
+    # Sort by relevance score so best signals are first
+    filtered.sort(key=lambda s: s.get("relevance_score", 0), reverse=True)
     
     return filtered
 

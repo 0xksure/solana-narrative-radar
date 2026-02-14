@@ -192,7 +192,9 @@ For each narrative you detect:
 Identify 10-12 narratives. Cast a WIDE net — it's better to surface more narratives than to miss emerging ones. Include a MIX of confidence levels: 2-3 HIGH, 3-4 MEDIUM, and 3-5 LOW confidence narratives. Even weak or early signals deserve a narrative if they represent something genuinely new. CRITICAL RULES:
 - Each narrative MUST include signals from at least 2 different source types (github, twitter, defillama, onchain)
 - Prioritize narratives where Twitter engagement + DeFi data + GitHub activity converge
-- Include specific numbers in explanations (TVL amounts, % changes, star counts, like counts)
+- Pay special attention to [KOL] tagged Twitter signals — these are from key opinion leaders and carry outsized influence
+- Twitter signals with high relevance scores indicate strong engagement + actionable content — weight these heavily
+- Include specific numbers in explanations (TVL amounts, % changes, star counts, like counts, tweet engagement)
 - The "explanation" should tell a STORY: what's happening, who's building it, why now, and what the numbers say
 
 For each supporting signal, the "comment" explains WHY this specific data point matters:
@@ -395,8 +397,14 @@ def format_signals_for_llm(signals: List[Dict], clusters: List[List[Dict]] = Non
             eng_str = f" ({', '.join(engagement)})" if engagement else ""
             author = s.get('author', '')
             author_str = f" by @{author}" if author else ""
+            # Flag KOL tweets and high-engagement signals
+            kol_flag = ""
+            if author and author.lower() in {k.lower() for k in ["0xMert_", "aeyakovenko", "rajgokal", "JupiterExchange", "DriftProtocol"]}:
+                kol_flag = " [KOL]"
+            relevance = s.get('relevance_score', 0)
+            rel_str = f" relevance:{relevance:.0f}" if relevance > 0 else ""
             sections["social"].append(
-                f"- [{source}/{s.get('signal_type')}]{author_str} {s.get('content', s.get('name', ''))[:200]}{eng_str}{url_suffix}"
+                f"- [{source}/{s.get('signal_type')}]{kol_flag}{author_str} {s.get('content', s.get('name', ''))[:250]}{eng_str}{rel_str}{url_suffix}"
             )
         elif source in ("solana_rpc", "birdeye", "solscan", "solanafm"):
             volume = s.get('volume', 0)
@@ -421,7 +429,7 @@ def format_signals_for_llm(signals: List[Dict], clusters: List[List[Dict]] = Non
     if sections["defillama"]:
         output += "DEFI/TVL DATA:\n" + "\n".join(sections["defillama"][:20]) + "\n\n"
     if sections["social"]:
-        output += "SOCIAL SIGNALS (Twitter/Reddit):\n" + "\n".join(sections["social"][:15]) + "\n\n"
+        output += "SOCIAL SIGNALS (Twitter/Reddit):\n" + "\n".join(sections["social"][:25]) + "\n\n"
     if sections["onchain"]:
         output += "ON-CHAIN DATA (Solana):\n" + "\n".join(sections["onchain"][:10]) + "\n\n"
     if sections["other"]:

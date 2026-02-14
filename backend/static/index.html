@@ -660,7 +660,7 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
 
         const SOURCE_ICONS = { github: '🐙', twitter: '🐦', defi: '📊', 'on-chain': '⛓️', onchain: '⛓️', reddit: '💬', defillama: '📊', jupiter: '🪐' };
         const SOURCE_COLORS = { github: '#00d18c', twitter: '#1d9bf0', defillama: '#9945FF', defi: '#9945FF', reddit: '#ff4500', 'on-chain': '#14F195', onchain: '#14F195', jupiter: '#f5a623' };
-        const KNOWN_KOLS = ['solana','aaboronin','rajgokal','armaboreh','0xmert_','taborvuk','cburniske','lightcrypto'];
+        const KNOWN_KOLS = ['solana','aeyakovenko','rajgokal','0xmert_','jupiterexchange','driftprotocol','shaboronnikov','armaboronnikov','cburniske','lightcrypto'];
         const TREND_ARROWS = { accelerating: '↗', emerging: '→', stabilizing: '↘' };
 
         // === ROUTING ===
@@ -1038,6 +1038,10 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                 parts.push(tw.join(' · '));
                 if (s.author && KNOWN_KOLS.some(k => s.author.toLowerCase().includes(k)))
                     parts.push('<span class="meta-badge kol">🔷 KOL</span>');
+                // Engagement tier
+                const eng = (s.likes || 0) + (s.retweets || 0);
+                if (eng >= 500) parts.push('<span class="meta-badge" style="border-color:#f59e0b;color:#f59e0b">🔥 Viral</span>');
+                else if (eng >= 100) parts.push('<span class="meta-badge active">📈 High Engagement</span>');
             }
             if (s.tvl_history && s.tvl_history.length >= 2) {
                 const first = s.tvl_history[0].tvl, last = s.tvl_history[s.tvl_history.length - 1].tvl;
