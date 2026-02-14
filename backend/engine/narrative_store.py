@@ -333,6 +333,10 @@ def merge_narratives(new_narratives: List[Dict], store: Dict) -> Dict:
     store["total_pipeline_runs"] = store.get("total_pipeline_runs", 0) + 1
 
     matched_ids = set()
+    # Track changes for Telegram alerts
+    _tg_new = []
+    _tg_direction_changes = []
+    _tg_high_confidence = []
 
     for n in new_narratives:
         name = n.get("name", "")
@@ -341,6 +345,8 @@ def merge_narratives(new_narratives: List[Dict], store: Dict) -> Dict:
 
         if matched_id:
             entry = store["narratives"][matched_id]
+            old_direction = entry.get("current_direction", "EMERGING")
+            old_confidence = entry.get("current_confidence", "MEDIUM")
             entry["name"] = name
             entry["canonical_name"] = canon
             entry["last_detected"] = now
@@ -350,6 +356,16 @@ def merge_narratives(new_narratives: List[Dict], store: Dict) -> Dict:
             entry["status"] = "ACTIVE"
             entry["current_confidence"] = n.get("confidence", entry.get("current_confidence", "MEDIUM"))
             entry["current_direction"] = n.get("direction", entry.get("current_direction", "EMERGING"))
+
+            # Track direction changes
+            new_direction = entry["current_direction"]
+            if new_direction != old_direction:
+                _tg_direction_changes.append({"name": name, "old_direction": old_direction, "new_direction": new_direction})
+
+            # Track new HIGH confidence
+            new_confidence = entry["current_confidence"]
+            if new_confidence == "HIGH" and old_confidence != "HIGH":
+                _tg_high_confidence.append({"name": name, "direction": new_direction})
             entry["explanation"] = n.get("explanation", entry.get("explanation", ""))
             entry["trend_evidence"] = n.get("trend_evidence", entry.get("trend_evidence", ""))
             entry["market_opportunity"] = n.get("market_opportunity", entry.get("market_opportunity", ""))
@@ -376,6 +392,7 @@ def merge_narratives(new_narratives: List[Dict], store: Dict) -> Dict:
             while nid in store["narratives"]:
                 nid = nid + "x"
 
+            _tg_new.append({"name": name, "confidence": n.get("confidence", "MEDIUM"), "direction": n.get("direction", "EMERGING")})
             store["narratives"][nid] = {
                 "id": nid,
                 "name": name,
@@ -401,12 +418,21 @@ def merge_narratives(new_narratives: List[Dict], store: Dict) -> Dict:
             }
             matched_ids.add(nid)
 
+    _tg_faded = []
     for nid, entry in store["narratives"].items():
         if nid not in matched_ids and entry.get("status") == "ACTIVE":
             entry["missed_count"] = entry.get("missed_count", 0) + 1
             if entry["missed_count"] >= 3:
                 entry["status"] = "FADED"
                 entry["faded_at"] = now
+                # Calculate age
+                age_hours = 0
+                try:
+                    first = datetime.fromisoformat(entry.get("first_detected", now))
+                    age_hours = int((datetime.now(timezone.utc) - first).total_seconds() / 3600)
+                except Exception:
+                    pass
+                _tg_faded.append({"name": entry.get("name", ""), "age_hours": age_hours})
 
     # Never archive — FADED narratives stay FADED forever (historical data)
     # Old ARCHIVED ones get upgraded to HISTORICAL for queryability
@@ -443,6 +469,19 @@ def merge_narratives(new_narratives: List[Dict], store: Dict) -> Dict:
             conn.close()
         except Exception as e:
             logger.error(f"Failed to record signal history/snapshots: {e}")
+
+    # Send Telegram alerts for changes (fire-and-forget)
+    if _tg_new or _tg_direction_changes or _tg_faded or _tg_high_confidence:
+        try:
+            import asyncio
+            from telegram_bot import notify_narrative_changes
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                asyncio.ensure_future(notify_narrative_changes(_tg_new, _tg_direction_changes, _tg_faded, _tg_high_confidence))
+            else:
+                loop.run_until_complete(notify_narrative_changes(_tg_new, _tg_direction_changes, _tg_faded, _tg_high_confidence))
+        except Exception as e:
+            logger.error("Failed to send Telegram alerts: %s", e)
 
     return store
 

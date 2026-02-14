@@ -721,6 +721,48 @@ def _compute_risk(confidence: str, direction: str) -> str:
 router.include_router(agent_router)
 
 
+# ── Telegram Bot Endpoints ──
+
+@router.post("/telegram/webhook")
+async def telegram_webhook(request: Request):
+    """Receive Telegram bot webhook updates."""
+    try:
+        update = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+
+    from telegram_bot import handle_webhook_update
+    await handle_webhook_update(update)
+    return {"ok": True}
+
+
+@router.post("/notify/telegram")
+async def notify_telegram(request: Request):
+    """Send a custom message to all Telegram subscribers (admin, protected by API key)."""
+    admin_key = os.environ.get("TELEGRAM_ADMIN_KEY", os.environ.get("DIGEST_API_KEY", ""))
+    if not admin_key:
+        raise HTTPException(status_code=503, detail="Admin key not configured")
+
+    auth = request.headers.get("Authorization", "").replace("Bearer ", "")
+    body = {}
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+
+    body_key = body.get("api_key", "")
+    if auth != admin_key and body_key != admin_key:
+        raise HTTPException(status_code=403, detail="Invalid API key")
+
+    message = body.get("message", "").strip()
+    if not message:
+        raise HTTPException(status_code=400, detail="Missing 'message' field")
+
+    from telegram_bot import broadcast
+    result = await broadcast(message)
+    return result
+
+
 # ── API Key & Usage Endpoints ──
 
 @router.post("/keys/register")
