@@ -1,4 +1,8 @@
 """Collect DeFi TVL and protocol data from DeFiLlama"""
+import logging
+
+logger = logging.getLogger(__name__)
+
 import httpx
 from datetime import datetime, timedelta
 from typing import List, Dict
@@ -61,7 +65,7 @@ async def _fetch_protocol_history(client: httpx.AsyncClient, slug: str) -> Dict:
             "logo": data.get("logo", ""),
         }
     except Exception as e:
-        print(f"Failed to fetch history for {slug}: {e}")
+        logger.warning("Failed to fetch history for %s: %s", slug, e)
         return {}
 
 
@@ -104,7 +108,7 @@ async def _fetch_chain_tvl_history(client: httpx.AsyncClient) -> Dict:
             "change_30d_pct": _pct(tvl_30d_ago, tvl_now),
         }
     except Exception as e:
-        print(f"Failed to fetch chain TVL history: {e}")
+        logger.warning("Failed to fetch chain TVL history: %s", e)
         return {}
 
 

@@ -1,4 +1,8 @@
 """Collect signals from Solana ecosystem sources"""
+import logging
+
+logger = logging.getLogger(__name__)
+
 import httpx
 from datetime import datetime, timezone
 from typing import List, Dict
@@ -39,7 +43,7 @@ async def collect_solana_ecosystem() -> List[Dict]:
                             "collected_at": datetime.now(timezone.utc).isoformat(),
                         })
         except Exception as e:
-            print(f"  ⚠️ Solana ecosystem JSON error: {e}")
+            logger.warning("Solana ecosystem JSON error: %s", e)
 
         # 2. Solana governance / DAO proposals via Realms API
         try:
@@ -70,7 +74,7 @@ async def collect_solana_ecosystem() -> List[Dict]:
                                 "collected_at": datetime.now(timezone.utc).isoformat(),
                             })
         except Exception as e:
-            print(f"  ⚠️ Realms DAO error: {e}")
+            logger.warning("Realms DAO error: %s", e)
 
         # 3. Solana DeFi governance via Tally (GraphQL)
         try:
@@ -117,9 +121,9 @@ async def collect_solana_ecosystem() -> List[Dict]:
                             "collected_at": datetime.now(timezone.utc).isoformat(),
                         })
         except Exception as e:
-            print(f"  ⚠️ Tally governance error: {e}")
+            logger.warning("Tally governance error: %s", e)
 
-    print(f"  → Solana Ecosystem: {len(signals)} signals")
+    logger.info("Solana Ecosystem: %s signals", len(signals))
     return signals
 
 

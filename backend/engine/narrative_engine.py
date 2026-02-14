@@ -1,4 +1,5 @@
 """LLM-powered narrative detection and idea generation"""
+import logging
 import os
 import json
 import math
@@ -7,12 +8,14 @@ from collections import Counter, defaultdict
 from typing import List, Dict, Tuple
 from anthropic import Anthropic
 
+logger = logging.getLogger(__name__)
+
 # Strip ALL whitespace (DO App Platform may inject newlines in long secrets)
 ANTHROPIC_API_KEY = "".join(os.getenv("ANTHROPIC_API_KEY", "").split())
 if ANTHROPIC_API_KEY:
-    print(f"✅ Anthropic API key loaded ({len(ANTHROPIC_API_KEY)} chars)")
+    logger.info("Anthropic API key loaded (%d chars)", len(ANTHROPIC_API_KEY))
 else:
-    print("⚠️ ANTHROPIC_API_KEY env var not set or empty")
+    logger.warning("ANTHROPIC_API_KEY env var not set or empty")
 
 def _tokenize(text: str) -> List[str]:
     """Simple tokenizer: lowercase, split on non-alphanum, remove short tokens."""
@@ -150,7 +153,7 @@ def cluster_narratives(scored_signals: List[Dict], previous_narrative_hints: Lis
         return {"narratives": [], "meta": {"signal_count": 0}}
     
     if not ANTHROPIC_API_KEY:
-        print("⚠️ No Anthropic API key, using rule-based fallback")
+        logger.warning("No Anthropic API key, using rule-based fallback clustering")
         return _fallback_clustering(top_signals)
     
     # Pre-cluster signals for better LLM input
@@ -240,7 +243,7 @@ For "references", include relevant links you know about: protocol websites, docu
             }
             return result
     except (json.JSONDecodeError, IndexError) as e:
-        print(f"Failed to parse LLM response: {e}")
+        logger.error("Failed to parse LLM narrative response: %s", e)
     
     return {"narratives": [], "meta": {"error": "Failed to parse response"}}
 
@@ -252,7 +255,7 @@ def generate_ideas(narratives: List[Dict]) -> List[Dict]:
         return []
     
     if not ANTHROPIC_API_KEY:
-        print("⚠️ No Anthropic API key, using fallback ideas")
+        logger.warning("No Anthropic API key, using fallback ideas")
         for n in narratives:
             n["ideas"] = _fallback_ideas(n)
             n["existing_projects"] = []
@@ -340,7 +343,7 @@ Respond in JSON:
                 narrative["ideas"] = []
                 narrative["existing_projects"] = []
         except Exception as e:
-            print(f"Failed to generate ideas for {narrative['name']}: {e}")
+            logger.error("Failed to generate ideas for %s: %s", narrative['name'], e)
             narrative["ideas"] = []
             narrative["existing_projects"] = []
         

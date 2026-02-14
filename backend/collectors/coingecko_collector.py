@@ -1,4 +1,8 @@
 """Collect trending coins from CoinGecko (no API key needed)"""
+import logging
+
+logger = logging.getLogger(__name__)
+
 import httpx
 from datetime import datetime, timezone
 from typing import List, Dict
@@ -15,7 +19,7 @@ async def collect_coingecko_trending() -> List[Dict]:
                 headers={"Accept": "application/json"},
             )
             if resp.status_code != 200:
-                print(f"⚠️ CoinGecko API returned {resp.status_code}")
+                logger.warning("CoinGecko API returned %s", resp.status_code)
                 return signals
 
             data = resp.json()
@@ -114,14 +118,14 @@ async def collect_coingecko_trending() -> List[Dict]:
                                 "collected_at": datetime.now(timezone.utc).isoformat(),
                             })
             except Exception as e:
-                print(f"  ⚠️ CoinGecko category error: {e}")
+                logger.warning("CoinGecko category error: %s", e)
 
         except httpx.TimeoutException:
-            print("⚠️ CoinGecko API timeout")
+            logger.warning("CoinGecko API timeout")
         except Exception as e:
-            print(f"⚠️ CoinGecko collector error: {e}")
+            logger.warning("CoinGecko collector error: %s", e)
 
-    print(f"  → CoinGecko: {len(signals)} signals")
+    logger.info("CoinGecko: %s signals", len(signals))
     return signals
 
 

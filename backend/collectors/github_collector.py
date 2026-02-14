@@ -1,4 +1,8 @@
 """Collect developer activity signals from GitHub"""
+import logging
+
+logger = logging.getLogger(__name__)
+
 import httpx
 import os
 from datetime import datetime, timedelta
@@ -33,7 +37,7 @@ async def collect_new_solana_repos(days_back: int = 14) -> List[Dict]:
             timeout=30
         )
         if resp.status_code != 200:
-            print(f"GitHub API error: {resp.status_code}")
+            logger.warning("GitHub API error: %s", resp.status_code)
             return []
         
         data = resp.json()

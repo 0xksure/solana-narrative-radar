@@ -1,4 +1,8 @@
 """Collect trending token data from Birdeye public API"""
+import logging
+
+logger = logging.getLogger(__name__)
+
 import httpx
 from datetime import datetime, timezone
 from typing import List, Dict
@@ -25,7 +29,7 @@ async def collect_birdeye_trending() -> List[Dict]:
                 headers={"Accept": "application/json"},
             )
             if resp.status_code != 200:
-                print(f"⚠️ Birdeye API returned {resp.status_code}")
+                logger.warning("Birdeye API returned %s", resp.status_code)
                 return signals
 
             data = resp.json()
@@ -75,11 +79,11 @@ async def collect_birdeye_trending() -> List[Dict]:
                 })
 
         except httpx.TimeoutException:
-            print("⚠️ Birdeye API timeout")
+            logger.warning("Birdeye API timeout")
         except Exception as e:
-            print(f"⚠️ Birdeye collector error: {e}")
+            logger.warning("Birdeye collector error: %s", e)
 
-    print(f"  → Birdeye: {len(signals)} trending token signals")
+    logger.info("Birdeye: %s trending token signals", len(signals))
     return signals
 
 

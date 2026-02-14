@@ -5,9 +5,15 @@ from fastapi.responses import FileResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from api.routes import router
 from contextlib import asynccontextmanager
+import logging
 import os
 import hashlib
 import sentry_sdk
+
+from logging_config import setup_logging
+
+setup_logging()
+logger = logging.getLogger(__name__)
 
 
 class NoCacheHTMLMiddleware(BaseHTTPMiddleware):
@@ -77,7 +83,7 @@ async def run_pipeline_task():
     """Run the pipeline with status tracking. Prevents concurrent runs."""
     global _pipeline_running
     if _pipeline_lock.locked():
-        print("🤖 [Agent] Pipeline already running, skipping")
+        logger.info("Pipeline already running, skipping")
         return
 
     async with _pipeline_lock:
@@ -94,12 +100,12 @@ async def run_pipeline_task():
         start = time.time()
         try:
             from engine.pipeline import run_pipeline
-            print(f"🤖 [Agent] Running pipeline at {now.isoformat()}...")
+            logger.info("Running pipeline at %s", now.isoformat())
             result = await run_pipeline()
             duration = round(time.time() - start, 1)
             n_count = len(result.get("narratives", []))
             s_count = result.get("signal_summary", {}).get("total_collected", 0)
-            print(f"🤖 [Agent] Done in {duration}s: {s_count} signals → {n_count} narratives")
+            logger.info("Pipeline done in %.1fs: %d signals -> %d narratives", duration, s_count, n_count)
 
             _save_status({
                 "last_run": datetime.now(timezone.utc).isoformat(),
@@ -111,7 +117,7 @@ async def run_pipeline_task():
             })
         except Exception as e:
             duration = round(time.time() - start, 1)
-            print(f"🤖 [Agent] Pipeline error after {duration}s: {e}")
+            logger.error("Pipeline error after %.1fs: %s", duration, e, exc_info=True)
             _save_status({
                 **_load_status(),
                 "status": "idle",
@@ -133,9 +139,9 @@ async def analytics_rollup_loop():
             from engine.analytics_db import run_daily_rollup, cleanup_old_events
             await run_daily_rollup()
             await cleanup_old_events(days=90)
-            print("📊 [Analytics] Daily rollup complete, old events cleaned")
+            logger.info("Daily analytics rollup complete, old events cleaned")
         except Exception as e:
-            print(f"📊 [Analytics] Rollup error: {e}")
+            logger.error("Analytics rollup error: %s", e)
 
 
 async def agent_loop():
@@ -147,26 +153,26 @@ async def agent_loop():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("🚀 Solana Narrative Radar Agent starting...")
+    logger.info("Solana Narrative Radar Agent starting")
 
     # Check if we need an immediate run
     if _report_is_stale():
-        print("📊 Report stale or missing — triggering background pipeline run...")
+        logger.info("Report stale or missing, triggering background pipeline run")
         asyncio.create_task(run_pipeline_task())
     else:
-        print("📊 Cached report found and fresh, serving immediately")
+        logger.info("Cached report found and fresh, serving immediately")
 
     # Start periodic loops
     task = asyncio.create_task(agent_loop())
     rollup_task = asyncio.create_task(analytics_rollup_loop())
-    print(f"🤖 Agent loop started (runs every {AGENT_LOOP_INTERVAL // 3600} hours)")
-    print("📊 Analytics rollup loop started")
+    logger.info("Agent loop started (runs every %d hours)", AGENT_LOOP_INTERVAL // 3600)
+    logger.info("Analytics rollup loop started")
 
     yield
 
     task.cancel()
     rollup_task.cancel()
-    print("👋 Agent shutting down...")
+    logger.info("Agent shutting down")
 
 
 app = FastAPI(
@@ -185,6 +191,16 @@ app.add_middleware(
 )
 
 app.add_middleware(NoCacheHTMLMiddleware)
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start = time.time()
+    response = await call_next(request)
+    duration = round(time.time() - start, 3)
+    if not request.url.path.startswith("/static") and not request.url.path.startswith("/img"):
+        logger.info("request | %s %s | %s | %.3fs", request.method, request.url.path, response.status_code, duration)
+    return response
+
 
 app.include_router(router, prefix="/api")
 

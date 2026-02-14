@@ -1,3 +1,7 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 #!/usr/bin/env python3
 """Pre-collect social signals using xbird CLI.
 
@@ -130,7 +134,7 @@ async def collect_home_timeline(count=50):
                     "collected_at": datetime.utcnow().isoformat(),
                 })
     except Exception as e:
-        print(f"⚠️ Home timeline error: {e}")
+        logger.warning("Home timeline error: %s", e)
     return signals
 
 
@@ -153,7 +157,7 @@ async def collect_search(query, count=20):
                 "collected_at": datetime.utcnow().isoformat(),
             })
     except Exception as e:
-        print(f"⚠️ Search '{query}' error: {e}")
+        logger.warning("Search '%s' error: %s", query, e)
     return signals
 
 
@@ -163,16 +167,16 @@ async def async_main():
     all_signals = []
     
     # Home timeline
-    print("Collecting home timeline...")
+    logger.info("Collecting home timeline...")
     home = await collect_home_timeline(100)
-    print(f"  → {len(home)} Solana-related tweets from home")
+    logger.info("%s Solana-related tweets from home", len(home))
     all_signals.extend(home)
     
     # Search queries
     for q in SEARCH_QUERIES:
-        print(f"Searching: {q}")
+        logger.info("Searching: %s", q)
         results = await collect_search(q, 20)
-        print(f"  → {len(results)} results")
+        logger.info("%s results", len(results))
         all_signals.extend(results)
     
     # Deduplicate by URL
@@ -196,7 +200,7 @@ async def async_main():
     with open(cache_path, "w") as f:
         json.dump(cache, f, indent=2)
     
-    print(f"\n✅ Saved {len(unique)} signals to {cache_path}")
+    logger.info("\nSaved %s signals to %s", len(unique), cache_path)
 
 
 def main():

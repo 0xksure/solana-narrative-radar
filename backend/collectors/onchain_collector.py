@@ -1,4 +1,8 @@
 """Collect on-chain signals from Solana public APIs (no API key needed)"""
+import logging
+
+logger = logging.getLogger(__name__)
+
 import httpx
 import json
 from datetime import datetime
@@ -42,7 +46,7 @@ async def collect_onchain_signals() -> List[Dict]:
                         "collected_at": datetime.utcnow().isoformat()
                     })
         except Exception as e:
-            print(f"  ⚠️ Solana RPC error: {e}")
+            logger.warning("Solana RPC error: %s", e)
         
         # 2. Epoch info (staking activity indicator)
         try:
@@ -132,7 +136,7 @@ async def collect_onchain_signals() -> List[Dict]:
                             "collected_at": datetime.utcnow().isoformat()
                         })
         except Exception as e:
-            print(f"  ⚠️ Jupiter API error: {e}")
+            logger.warning("Jupiter API error: %s", e)
 
         # 6. Recent program activity via getSignaturesForAddress for key programs
         for program_id, program_name in list(TRACKED_PROGRAMS.items())[:3]:
@@ -178,5 +182,5 @@ async def collect_onchain_signals() -> List[Dict]:
         except Exception:
             pass
     
-    print(f"  → On-chain: {len(signals)} signals")
+    logger.info("On-chain: %s signals", len(signals))
     return signals

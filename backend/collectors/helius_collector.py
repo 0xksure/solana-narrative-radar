@@ -1,4 +1,8 @@
 """Collect onchain signals from Helius API"""
+import logging
+
+logger = logging.getLogger(__name__)
+
 import httpx
 import os
 from datetime import datetime
@@ -12,7 +16,7 @@ async def collect_program_activity() -> List[Dict]:
     signals = []
     
     if not HELIUS_API_KEY:
-        print("⚠️ No Helius API key set, skipping onchain collection")
+        logger.warning("No Helius API key set, skipping onchain collection")
         return signals
     
     # Note: Helius free tier has limited endpoints

@@ -1,9 +1,13 @@
 """Main pipeline: collect → score → cluster → generate ideas → persist"""
 import json
+import logging
 import os
+import time
 import uuid
 from datetime import datetime
 from typing import Dict
+
+logger = logging.getLogger(__name__)
 
 from collectors.github_collector import collect_new_solana_repos, collect_trending_solana_repos
 from collectors.defillama_collector import collect_solana_tvl
@@ -25,36 +29,36 @@ from engine.narrative_store import (
 
 async def run_pipeline() -> Dict:
     """Run the full narrative detection pipeline"""
-    print("📡 Starting Solana Narrative Radar pipeline...")
+    logger.info("Starting narrative radar pipeline")
     
     # Phase 1: Collect signals from all sources
-    print("  [1/5] Collecting GitHub signals...")
+    logger.info("[1/7] Collecting GitHub signals")
     github_new = await collect_new_solana_repos(days_back=14)
     github_trending = await collect_trending_solana_repos()
     
-    print("  [2/5] Collecting DeFiLlama signals...")
+    logger.info("[2/7] Collecting DeFiLlama signals")
     defi_signals = await collect_solana_tvl()
     
-    print("  [3/6] Collecting social signals...")
+    logger.info("[3/7] Collecting social signals")
     social_signals = await collect_kol_tweets()
     
-    print("  [4/7] Collecting on-chain signals...")
+    logger.info("[4/7] Collecting on-chain signals")
     onchain_signals = await collect_onchain_signals()
     
-    print("  [5/9] Collecting Birdeye trending tokens...")
+    logger.info("[5/7] Collecting Birdeye trending")
     birdeye_signals = await collect_birdeye_trending()
     
-    print("  [6/9] Collecting CoinGecko trending...")
+    logger.info("[6/7] Collecting CoinGecko trending")
     coingecko_signals = await collect_coingecko_trending()
     
-    print("  [7/9] Collecting Solana ecosystem & governance...")
+    logger.info("[7/7] Collecting Solana ecosystem")
     ecosystem_signals = await collect_solana_ecosystem()
     
     all_signals = github_new + github_trending + defi_signals + social_signals + onchain_signals + birdeye_signals + coingecko_signals + ecosystem_signals
-    print(f"  → Collected {len(all_signals)} raw signals")
+    logger.info("Collected %d raw signals", len(all_signals))
     
     # Phase 2: Score signals
-    print("  [6/7] Scoring signals...")
+    logger.info("Scoring signals")
     scored = score_signals(all_signals)
     
     # Save raw signals
@@ -69,7 +73,7 @@ async def run_pipeline() -> Dict:
         }, f, indent=2)
     
     # Phase 3: Cluster into narratives
-    print("  [7/7] Detecting narratives...")
+    logger.info("Detecting narratives")
     
     # Load persistent store and pass hints to LLM
     narrative_store = load_store()
@@ -80,13 +84,13 @@ async def run_pipeline() -> Dict:
     # Phase 4: Generate ideas for each narrative
     narratives = narrative_result.get("narratives", [])
     if narratives:
-        print(f"  → Found {len(narratives)} narratives, generating ideas...")
+        logger.info("Found %d narratives, generating ideas", len(narratives))
         narratives_with_ideas = generate_ideas(narratives)
     else:
         narratives_with_ideas = []
     
     # Phase 5: Merge into persistent narrative store
-    print("  [+] Updating narrative store...")
+    logger.info("Updating narrative store")
     narrative_store = merge_narratives(narratives_with_ideas, narrative_store)
     save_store(narrative_store)
     
@@ -147,11 +151,11 @@ async def run_pipeline() -> Dict:
     try:
         save_run(run_id, scored, store_narratives, report.get("signal_summary", {}))
         db_stats = get_stats()
-        print(f"  💾 Persisted to DB (total: {db_stats['total_signals_collected']} signals, {db_stats['total_runs']} runs)")
+        logger.info("Persisted to DB (total: %d signals, %d runs)", db_stats['total_signals_collected'], db_stats['total_runs'])
     except Exception as e:
-        print(f"  ⚠️ DB persist error: {e}")
+        logger.error("DB persist error: %s", e)
     
     active_count = len([n for n in store_narratives if n.get("status") == "ACTIVE"])
     faded_count = len([n for n in store_narratives if n.get("status") == "FADED"])
-    print(f"✅ Pipeline complete! {active_count} active narratives, {faded_count} recently faded")
+    logger.info("Pipeline complete: %d active narratives, %d recently faded", active_count, faded_count)
     return report

@@ -1,4 +1,8 @@
 """CLI runner for the narrative detection pipeline"""
+import logging
+
+logger = logging.getLogger(__name__)
+
 import asyncio
 import json
 import sys
@@ -13,16 +17,16 @@ load_dotenv()
 from engine.pipeline import run_pipeline
 
 async def main():
-    print("🚀 Solana Narrative Radar - Running Pipeline")
-    print("=" * 50)
+    logger.info("Solana Narrative Radar - Running Pipeline")
+    logger.info("=" * 50)
     report = await run_pipeline()
-    print("\n" + "=" * 50)
-    print(f"📊 Report Summary:")
-    print(f"   Signals collected: {report['signal_summary']['total_collected']}")
-    print(f"   Narratives found: {len(report['narratives'])}")
+    logger.info("=" * 50)
+    logger.info("Report Summary:")
+    logger.info("Signals collected: %s", report['signal_summary']['total_collected'])
+    logger.info("Narratives found: %s", len(report['narratives']))
     for n in report['narratives']:
-        print(f"   • {n['name']} [{n['confidence']}] - {len(n.get('ideas', []))} build ideas")
-    print(f"\n💾 Report saved to backend/data/latest_report.json")
+        logger.info("%s [%s] - %s build ideas", n['name'], n['confidence'], len(n.get('ideas', [])))
+    logger.info("\nReport saved to backend/data/latest_report.json")
 
 if __name__ == "__main__":
     asyncio.run(main())

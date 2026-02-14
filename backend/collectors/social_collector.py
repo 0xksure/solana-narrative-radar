@@ -1,4 +1,5 @@
 """Collect social signals from X/Twitter and other sources"""
+import logging
 import subprocess
 import json
 import math
@@ -7,6 +8,8 @@ import os
 import re
 from datetime import datetime
 from typing import List, Dict
+
+logger = logging.getLogger(__name__)
 
 # KOLs to monitor
 SOLANA_KOLS = [
@@ -41,13 +44,13 @@ async def collect_kol_tweets() -> List[Dict]:
             age_hours = (datetime.utcnow() - cache_ts).total_seconds() / 3600
             if age_hours < 6:
                 cached_signals = cache.get("signals", [])
-                print(f"  → Social: using {len(cached_signals)} cached signals ({age_hours:.1f}h old)")
+                logger.info("Social: using %d cached signals (%.1fh old)", len(cached_signals), age_hours)
                 # Still collect non-twitter signals live
                 ecosystem_signals = await _collect_ecosystem_signals()
                 reddit_signals = await _collect_reddit_signals()
                 return cached_signals + ecosystem_signals + reddit_signals
         except Exception as e:
-            print(f"  ⚠️ Cache load error: {e}")
+            logger.warning("Social cache load error: %s", e)
     
     signals = []
     
@@ -67,7 +70,7 @@ async def collect_kol_tweets() -> List[Dict]:
     # Apply spam filter to twitter signals
     signals = filter_spam(signals)
     
-    print(f"  → Social: {len(signals)} signals ({len(xbird_signals)} twitter, {len(ecosystem_signals)} ecosystem, {len(reddit_signals)} reddit)")
+    logger.info("Social: %d signals (%d twitter, %d ecosystem, %d reddit)", len(signals), len(xbird_signals), len(ecosystem_signals), len(reddit_signals))
     return signals
 
 
@@ -142,9 +145,9 @@ async def _collect_via_xbird() -> List[Dict]:
             if signals:
                 return signals
         except Exception as e:
-            print(f"  ⚠️ Twitter API collection error: {e}")
+            logger.warning("Twitter API collection error: %s", e)
     else:
-        print("  ⚠️ Twitter credentials not set, skipping direct API")
+        logger.warning("Twitter credentials not set, skipping direct API")
     
     # Fallback: Nitter RSS feeds for KOL monitoring
     nitter_signals = await _collect_via_nitter()
@@ -369,7 +372,7 @@ async def _collect_reddit_signals() -> List[Dict]:
                             "collected_at": datetime.utcnow().isoformat()
                         })
         except Exception as e:
-            print(f"  ⚠️ Reddit collection error: {e}")
+            logger.warning("Reddit collection error: %s", e)
         
         # Also check r/solanadev for developer signals
         try:
