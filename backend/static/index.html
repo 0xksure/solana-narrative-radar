@@ -591,6 +591,39 @@
                     </div>
                     <div id="historical-grid" class="narrative-grid" style="display:none"></div>
                 </div>
+                <!-- Email Digest Subscribe -->
+                <div id="subscribe-section" style="background:linear-gradient(135deg,rgba(153,69,255,0.06),rgba(0,209,140,0.06));border:1px solid rgba(153,69,255,0.15);border-radius:12px;padding:24px;margin:32px 0 24px;text-align:center">
+                    <h3 style="margin:0 0 6px;color:var(--accent);font-size:1rem">📬 Get Narrative Digests</h3>
+                    <p style="color:var(--text-muted);font-size:0.8rem;margin:0 0 16px">Receive top narratives and build ideas in your inbox</p>
+                    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;max-width:460px;margin:0 auto">
+                        <input type="email" id="subscribe-email" placeholder="you@email.com" style="flex:1;min-width:180px;padding:8px 14px;border-radius:6px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);font-size:0.85rem;font-family:inherit;outline:none" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+                        <select id="subscribe-freq" style="padding:8px 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-secondary);font-size:0.8rem;font-family:inherit;cursor:pointer">
+                            <option value="weekly">Weekly</option>
+                            <option value="daily">Daily</option>
+                        </select>
+                        <button onclick="doSubscribe()" class="btn" id="subscribe-btn" style="white-space:nowrap">Subscribe</button>
+                    </div>
+                    <div id="subscribe-msg" style="margin-top:10px;font-size:0.8rem;display:none"></div>
+                </div>
+                <script>
+                async function doSubscribe() {
+                    const email = document.getElementById('subscribe-email').value.trim();
+                    const freq = document.getElementById('subscribe-freq').value;
+                    const msg = document.getElementById('subscribe-msg');
+                    const btn = document.getElementById('subscribe-btn');
+                    if (!email || !email.includes('@')) { msg.style.display='block'; msg.style.color='var(--danger)'; msg.textContent='Please enter a valid email'; return; }
+                    btn.disabled = true; btn.textContent = '...';
+                    try {
+                        const r = await fetch('/api/subscribe', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email, frequency:freq})});
+                        const d = await r.json();
+                        msg.style.display = 'block';
+                        if (r.ok) { msg.style.color='var(--success)'; msg.textContent='✅ Subscribed! You\'ll receive '+freq+' digests.'; document.getElementById('subscribe-email').value=''; }
+                        else { msg.style.color='var(--danger)'; msg.textContent=d.detail||'Error subscribing'; }
+                    } catch(e) { msg.style.display='block'; msg.style.color='var(--danger)'; msg.textContent='Network error'; }
+                    btn.disabled = false; btn.textContent = 'Subscribe';
+                }
+                </script>
+
                 <footer class="main-footer">
                     <p>Autonomous AI Agent · Monitors GitHub, DeFiLlama, Reddit & Twitter</p>
                     <div class="footer-links">

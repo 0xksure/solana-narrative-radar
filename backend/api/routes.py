@@ -719,3 +719,75 @@ def _compute_risk(confidence: str, direction: str) -> str:
 
 
 router.include_router(agent_router)
+
+
+# --- Email Digest Endpoints ---
+
+import re
+
+@router.post("/subscribe")
+async def subscribe_endpoint(request: Request):
+    """Subscribe to email digest."""
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+
+    email = (body.get("email") or "").strip().lower()
+    frequency = body.get("frequency", "weekly")
+
+    if not email or not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email):
+        raise HTTPException(status_code=400, detail="Invalid email address")
+    if frequency not in ("daily", "weekly"):
+        raise HTTPException(status_code=400, detail="Frequency must be 'daily' or 'weekly'")
+
+    from digest import subscribe
+    result = await subscribe(email, frequency)
+    if result["status"] == "error":
+        raise HTTPException(status_code=500, detail=result["message"])
+    return result
+
+
+@router.get("/unsubscribe")
+async def unsubscribe_endpoint(token: str = Query(...)):
+    """Unsubscribe from email digest."""
+    from digest import unsubscribe
+    success = await unsubscribe(token)
+    html = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <style>body{{background:#0a0a0f;color:#e2e8f0;font-family:-apple-system,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0}}
+    .card{{background:#12121a;border:1px solid #1e1e2e;border-radius:12px;padding:40px;text-align:center;max-width:400px}}
+    a{{color:#9945ff;text-decoration:none}}</style></head><body><div class="card">
+    <h2>{'✅ Unsubscribed' if success else '❌ Token Not Found'}</h2>
+    <p>{'You have been unsubscribed from the Solana Narrative Radar digest.' if success else 'This unsubscribe link is invalid or already used.'}</p>
+    <a href="{os.environ.get('BASE_URL', 'https://solana-narrative-radar-8vsib.ondigitalocean.app')}">← Back to Radar</a>
+    </div></body></html>"""
+    from fastapi.responses import HTMLResponse
+    return HTMLResponse(content=html)
+
+
+@router.post("/digest/trigger")
+async def trigger_digest_endpoint(request: Request):
+    """Trigger digest send (protected by API key)."""
+    digest_key = os.environ.get("DIGEST_API_KEY", "")
+    if not digest_key:
+        raise HTTPException(status_code=503, detail="Digest not configured")
+
+    auth = request.headers.get("Authorization", "").replace("Bearer ", "")
+    body_key = ""
+    try:
+        b = await request.json()
+        body_key = b.get("api_key", "")
+    except Exception:
+        pass
+
+    if auth != digest_key and body_key != digest_key:
+        raise HTTPException(status_code=403, detail="Invalid API key")
+
+    from digest import trigger_digest
+    try:
+        b = await request.json()
+        freq = b.get("frequency")
+    except Exception:
+        freq = None
+    result = await trigger_digest(freq)
+    return result
