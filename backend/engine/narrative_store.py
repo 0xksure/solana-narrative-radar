@@ -89,6 +89,7 @@ def _ensure_tables():
                     topics JSONB DEFAULT '[]',
                     all_signals JSONB DEFAULT '[]',
                     ideas JSONB DEFAULT '[]',
+                    existing_projects JSONB DEFAULT '[]',
                     references_ JSONB DEFAULT '[]',
                     confidence_history JSONB DEFAULT '[]',
                     direction_history JSONB DEFAULT '[]'
@@ -97,6 +98,12 @@ def _ensure_tables():
                     key TEXT PRIMARY KEY,
                     value TEXT
                 );
+            """)
+        conn.commit()
+        # Add existing_projects column if missing
+        with conn.cursor() as cur:
+            cur.execute("""
+                ALTER TABLE narrative_store ADD COLUMN IF NOT EXISTS existing_projects JSONB DEFAULT '[]'
             """)
         conn.commit()
         _migrate_json_if_needed(conn)
@@ -150,9 +157,9 @@ def _upsert_narrative(cur, nid: str, entry: Dict):
     cur.execute("""
         INSERT INTO narrative_store (id, name, canonical_name, status, first_detected, last_detected,
             last_updated, faded_at, detection_count, missed_count, current_confidence, current_direction,
-            explanation, trend_evidence, market_opportunity, topics, all_signals, ideas, references_,
+            explanation, trend_evidence, market_opportunity, topics, all_signals, ideas, existing_projects, references_,
             confidence_history, direction_history)
-        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         ON CONFLICT (id) DO UPDATE SET
             name=EXCLUDED.name, canonical_name=EXCLUDED.canonical_name, status=EXCLUDED.status,
             first_detected=EXCLUDED.first_detected, last_detected=EXCLUDED.last_detected,
@@ -161,7 +168,8 @@ def _upsert_narrative(cur, nid: str, entry: Dict):
             current_confidence=EXCLUDED.current_confidence, current_direction=EXCLUDED.current_direction,
             explanation=EXCLUDED.explanation, trend_evidence=EXCLUDED.trend_evidence,
             market_opportunity=EXCLUDED.market_opportunity, topics=EXCLUDED.topics,
-            all_signals=EXCLUDED.all_signals, ideas=EXCLUDED.ideas, references_=EXCLUDED.references_,
+            all_signals=EXCLUDED.all_signals, ideas=EXCLUDED.ideas, existing_projects=EXCLUDED.existing_projects,
+            references_=EXCLUDED.references_,
             confidence_history=EXCLUDED.confidence_history, direction_history=EXCLUDED.direction_history
     """, (
         nid,
@@ -182,6 +190,7 @@ def _upsert_narrative(cur, nid: str, entry: Dict):
         json.dumps(entry.get("topics", [])),
         json.dumps(entry.get("all_signals", [])),
         json.dumps(entry.get("ideas", [])),
+        json.dumps(entry.get("existing_projects", [])),
         json.dumps(entry.get("references", [])),
         json.dumps(entry.get("confidence_history", [])),
         json.dumps(entry.get("direction_history", [])),
@@ -191,7 +200,7 @@ def _upsert_narrative(cur, nid: str, entry: Dict):
 def _row_to_entry(row, columns) -> Dict:
     d = dict(zip(columns, row))
     # Parse JSONB fields
-    for key in ("topics", "all_signals", "ideas", "references_", "confidence_history", "direction_history"):
+    for key in ("topics", "all_signals", "ideas", "existing_projects", "references_", "confidence_history", "direction_history"):
         val = d.get(key)
         if isinstance(val, str):
             d[key] = json.loads(val)
@@ -209,7 +218,7 @@ _COLUMNS = [
     "id", "name", "canonical_name", "status", "first_detected", "last_detected",
     "last_updated", "faded_at", "detection_count", "missed_count", "current_confidence",
     "current_direction", "explanation", "trend_evidence", "market_opportunity",
-    "topics", "all_signals", "ideas", "references_", "confidence_history", "direction_history",
+    "topics", "all_signals", "ideas", "existing_projects", "references_", "confidence_history", "direction_history",
 ]
 
 
@@ -346,6 +355,7 @@ def merge_narratives(new_narratives: List[Dict], store: Dict) -> Dict:
             entry["market_opportunity"] = n.get("market_opportunity", entry.get("market_opportunity", ""))
             entry["topics"] = n.get("topics", entry.get("topics", []))
             entry["ideas"] = n.get("ideas", entry.get("ideas", []))
+            entry["existing_projects"] = n.get("existing_projects", entry.get("existing_projects", []))
             entry["references"] = n.get("references", entry.get("references", []))
 
             entry.setdefault("confidence_history", [])
@@ -386,6 +396,7 @@ def merge_narratives(new_narratives: List[Dict], store: Dict) -> Dict:
                 "topics": n.get("topics", []),
                 "all_signals": _dedup_signals(n.get("supporting_signals", []), cap=30),
                 "ideas": n.get("ideas", []),
+                "existing_projects": n.get("existing_projects", []),
                 "references": n.get("references", []),
             }
             matched_ids.add(nid)
@@ -548,6 +559,7 @@ def store_entry_to_api(entry: Dict) -> Dict:
         "topics": entry.get("topics", []),
         "supporting_signals": entry.get("all_signals", []),
         "ideas": entry.get("ideas", []),
+        "existing_projects": entry.get("existing_projects", []),
         "references": entry.get("references", []),
         "status": _compute_trending_status(entry),
         "first_detected": entry.get("first_detected", ""),

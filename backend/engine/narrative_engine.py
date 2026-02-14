@@ -255,6 +255,7 @@ def generate_ideas(narratives: List[Dict]) -> List[Dict]:
         print("⚠️ No Anthropic API key, using fallback ideas")
         for n in narratives:
             n["ideas"] = _fallback_ideas(n)
+            n["existing_projects"] = []
         return narratives
     
     client = Anthropic(api_key=ANTHROPIC_API_KEY)
@@ -285,6 +286,15 @@ For each idea:
 9. Reference links: URLs of existing similar products or inspirations
 10. Key metrics: 3-5 quantified metrics with context (addressable market size, competition count, time to market, user base estimate, etc.)
 
+Additionally, identify 3-8 existing Solana projects that are actively building in this narrative's space. These should be real, verifiable projects.
+
+For each existing project:
+1. Name (official project name)
+2. Description: 1 sentence on what they do
+3. URL: official website or Twitter
+4. Relevance: why they're relevant to this narrative
+5. Category: LEADER (dominant), GROWING (gaining traction), or EMERGING (new/small)
+
 Respond in JSON:
 {{
   "ideas": [
@@ -304,6 +314,15 @@ Respond in JSON:
         {{"label": "Time to Market", "value": "X weeks", "context": "What enables this timeline"}}
       ]
     }}
+  ],
+  "existing_projects": [
+    {{
+      "name": "Jupiter",
+      "description": "Leading DEX aggregator on Solana",
+      "url": "https://jup.ag",
+      "relevance": "Core DeFi infrastructure benefiting from TVL growth",
+      "category": "LEADER"
+    }}
   ]
 }}"""
             }]
@@ -316,11 +335,14 @@ Respond in JSON:
             if start >= 0 and end > start:
                 ideas_data = json.loads(text[start:end])
                 narrative["ideas"] = ideas_data.get("ideas", [])
+                narrative["existing_projects"] = ideas_data.get("existing_projects", [])
             else:
                 narrative["ideas"] = []
+                narrative["existing_projects"] = []
         except Exception as e:
             print(f"Failed to generate ideas for {narrative['name']}: {e}")
             narrative["ideas"] = []
+            narrative["existing_projects"] = []
         
         enriched.append(narrative)
     

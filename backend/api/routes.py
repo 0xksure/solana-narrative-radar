@@ -577,6 +577,7 @@ async def agent_narratives():
             "topics": n.get("topics", []),
             "signal_count": len(n.get("supporting_signals", [])),
             "idea_count": len(n.get("ideas", [])),
+            "existing_projects": n.get("existing_projects", []),
             "supporting_signals": n.get("supporting_signals", []),
             "ideas": [{"id": _idea_id(i["name"]), "name": i["name"], "complexity": i.get("complexity", "WEEKS")} for i in n.get("ideas", [])],
         })

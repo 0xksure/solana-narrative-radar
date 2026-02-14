@@ -331,6 +331,27 @@
         .key-metric-context { color: var(--text-muted); font-size: 0.75rem; }
 
         /* Ideas */
+        .existing-projects-section {
+            padding: 20px; border-radius: var(--radius-md);
+            background: var(--bg-surface); border: 1px solid var(--border); margin-bottom: 20px;
+        }
+        .existing-title { color: var(--accent); font-size: 1rem; font-weight: 700; margin-bottom: 4px; }
+        .existing-subtitle { color: var(--text-muted); font-size: 0.8125rem; margin-bottom: 12px; }
+        .existing-project-card {
+            background: var(--bg-primary); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); padding: 12px 16px; margin: 8px 0; transition: border-color 0.15s;
+        }
+        .existing-project-card:hover { border-color: var(--border-hover); }
+        .project-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .project-name { color: var(--text-primary); font-weight: 700; font-size: 0.9375rem; }
+        .project-category { font-size: 0.6875rem; font-weight: 700; padding: 2px 8px; border-radius: 9999px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .project-category.leader { background: rgba(16,185,129,0.15); color: var(--success); }
+        .project-category.growing { background: rgba(59,130,246,0.15); color: var(--info); }
+        .project-category.emerging { background: rgba(245,158,11,0.15); color: var(--warning); }
+        .project-desc { color: var(--text-secondary); font-size: 0.8125rem; margin-bottom: 4px; }
+        .project-relevance { color: var(--text-muted); font-size: 0.75rem; font-style: italic; margin-bottom: 6px; }
+        .project-link { color: var(--accent); font-size: 0.8125rem; text-decoration: none; }
+        .project-link:hover { text-decoration: underline; }
         .ideas-section {
             padding: 20px; border-radius: var(--radius-md);
             background: var(--bg-surface); border: 1px solid var(--border); margin-bottom: 20px;
@@ -821,6 +842,19 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                         ${signals.length > 8 ? `<div class="signals-hidden" style="display:none">${signals.slice(8, 15).map((s, si) => renderSignal(s, 8 + si)).join('')}</div>
                         <div class="show-all-toggle" onclick="toggleSignals(this)">Show ${Math.min(signals.length, 15) - 8} more signals ▼</div>` : ''}
                     </div>
+                </div>` : ''}
+                ${n.existing_projects && n.existing_projects.length ? `<div class="existing-projects-section">
+                    <div class="existing-title">🏗️ Who's Building Here</div>
+                    <div class="existing-subtitle">Active projects in this space</div>
+                    ${n.existing_projects.map(p => `<div class="existing-project-card">
+                        <div class="project-header">
+                            <span class="project-name">${esc(p.name)}</span>
+                            <span class="project-category ${(p.category || '').toLowerCase()}">${esc(p.category || 'EMERGING')}</span>
+                        </div>
+                        <div class="project-desc">${esc(p.description || '')}</div>
+                        <div class="project-relevance">${esc(p.relevance || '')}</div>
+                        ${p.url ? `<a class="project-link" href="${p.url}" target="_blank">Visit →</a>` : ''}
+                    </div>`).join('')}
                 </div>` : ''}
                 ${n.ideas && n.ideas.length ? `<div class="ideas-section">
                     <div class="ideas-title"><img src="/img/idea.png" class="icon-sm"> Build Ideas</div>
