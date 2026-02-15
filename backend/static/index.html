@@ -200,6 +200,7 @@
             border-radius: var(--radius-md); padding: 18px; cursor: pointer;
             transition: all 0.2s; border-left: 3px solid var(--border);
             animation: fadeInUp 0.4s ease-out both;
+            overflow: hidden; max-height: 280px;
         }
         .narrative-grid-card:nth-child(1) { animation-delay: 0s; }
         .narrative-grid-card:nth-child(2) { animation-delay: 0.05s; }
@@ -596,7 +597,8 @@
         .btn:disabled { background: var(--bg-elevated); color: var(--text-muted); cursor: not-allowed; }
 
         /* Custom icon classes */
-        .icon-sm { width: 18px; height: 18px; vertical-align: middle; margin-right: 4px; display: inline-block; }
+        .icon-sm { width: 18px; height: 18px; max-width: 18px; max-height: 18px; vertical-align: middle; margin-right: 4px; display: inline-block; object-fit: contain; }
+        .narrative-grid-card img { max-width: 18px; max-height: 18px; object-fit: contain; }
         .icon-md { width: 24px; height: 24px; vertical-align: middle; margin-right: 6px; display: inline-block; }
         .icon-lg { width: 32px; height: 32px; vertical-align: middle; margin-right: 8px; display: inline-block; }
         .risk-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 6px; vertical-align: middle; }
@@ -1384,7 +1386,7 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
         function renderCardSparkline(n, idx) {
             const hist = n.confidence_history || [];
             if (hist.length < 2) return '';
-            return `<canvas id="sparkline-${idx}" width="120" height="40" style="margin-top:8px;width:100%;height:40px"></canvas>`;
+            return `<canvas id="sparkline-${idx}" width="120" height="30" style="margin-top:6px;width:100%;height:30px;max-height:30px"></canvas>`;
         }
 
         function createCardSparklines() {
