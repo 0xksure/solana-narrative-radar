@@ -22,6 +22,8 @@ from collectors.governance_collector import collect as collect_governance
 from collectors.news_collector import collect as collect_news
 from collectors.pump_fun_collector import collect as collect_pump_fun
 from collectors.jupiter_collector import collect as collect_jupiter
+from collectors.devtools_collector import collect as collect_devtools
+from collectors.dune_collector import collect as collect_dune
 from engine.scorer import score_signals
 from engine.narrative_engine import cluster_narratives, generate_ideas
 from engine.store import save_run, get_signal_velocity, get_stats
@@ -75,10 +77,16 @@ async def run_pipeline() -> Dict:
     logger.info("[12/13] Collecting governance signals")
     governance_signals = await collect_governance()
     
-    logger.info("[13/13] Collecting news signals")
+    logger.info("[13/14] Collecting news signals")
     news_signals = await collect_news()
     
-    all_signals = github_new + github_trending + defi_signals + social_signals + onchain_signals + birdeye_signals + coingecko_signals + ecosystem_signals + reddit_signals + dexscreener_signals + pump_fun_signals + jupiter_signals + governance_signals + news_signals
+    logger.info("[14/14] Collecting Dune/Flipside on-chain analytics")
+    dune_signals = await collect_dune()
+    
+    logger.info("[14/14] Collecting devtools/registry signals")
+    devtools_signals = await collect_devtools()
+    
+    all_signals = github_new + github_trending + defi_signals + social_signals + onchain_signals + birdeye_signals + coingecko_signals + ecosystem_signals + reddit_signals + dexscreener_signals + pump_fun_signals + jupiter_signals + governance_signals + news_signals + devtools_signals
     logger.info("Collected %d raw signals", len(all_signals))
     
     # Phase 2: Score signals
@@ -149,6 +157,7 @@ async def run_pipeline() -> Dict:
             "dexscreener_signals": len(dexscreener_signals),
             "governance_signals": len(governance_signals),
             "news_signals": len(news_signals),
+            "devtools_signals": len(devtools_signals),
             "high_score_signals": len([s for s in scored if s.get("score", 0) > 60])
         },
         "narratives": store_narratives,
