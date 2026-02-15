@@ -69,10 +69,16 @@ async def run_pipeline() -> Dict:
     logger.info("[10/11] Collecting Pump.fun signals")
     pump_fun_signals = await collect_pump_fun()
     
-    logger.info("[11/11] Collecting Jupiter signals")
+    logger.info("[11/13] Collecting Jupiter signals")
     jupiter_signals = await collect_jupiter()
     
-    all_signals = github_new + github_trending + defi_signals + social_signals + onchain_signals + birdeye_signals + coingecko_signals + ecosystem_signals + reddit_signals + dexscreener_signals + pump_fun_signals + jupiter_signals
+    logger.info("[12/13] Collecting governance signals")
+    governance_signals = await collect_governance()
+    
+    logger.info("[13/13] Collecting news signals")
+    news_signals = await collect_news()
+    
+    all_signals = github_new + github_trending + defi_signals + social_signals + onchain_signals + birdeye_signals + coingecko_signals + ecosystem_signals + reddit_signals + dexscreener_signals + pump_fun_signals + jupiter_signals + governance_signals + news_signals
     logger.info("Collected %d raw signals", len(all_signals))
     
     # Phase 2: Score signals
@@ -141,6 +147,8 @@ async def run_pipeline() -> Dict:
             "ecosystem_signals": len(ecosystem_signals),
             "reddit_signals": len(reddit_signals),
             "dexscreener_signals": len(dexscreener_signals),
+            "governance_signals": len(governance_signals),
+            "news_signals": len(news_signals),
             "high_score_signals": len([s for s in scored if s.get("score", 0) > 60])
         },
         "narratives": store_narratives,
