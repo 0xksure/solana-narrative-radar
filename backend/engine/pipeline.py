@@ -86,7 +86,7 @@ async def run_pipeline() -> Dict:
     logger.info("[14/14] Collecting devtools/registry signals")
     devtools_signals = await collect_devtools()
     
-    all_signals = github_new + github_trending + defi_signals + social_signals + onchain_signals + birdeye_signals + coingecko_signals + ecosystem_signals + reddit_signals + dexscreener_signals + pump_fun_signals + jupiter_signals + governance_signals + news_signals + devtools_signals
+    all_signals = github_new + github_trending + defi_signals + social_signals + onchain_signals + birdeye_signals + coingecko_signals + ecosystem_signals + reddit_signals + dexscreener_signals + pump_fun_signals + jupiter_signals + governance_signals + news_signals + dune_signals + devtools_signals
     logger.info("Collected %d raw signals", len(all_signals))
     
     # Phase 2: Score signals
