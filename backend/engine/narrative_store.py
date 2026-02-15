@@ -21,6 +21,40 @@ _STOP_WORDS = frozenset({
     "solana", "sol", "protocol", "ecosystem", "network", "based", "powered",
 })
 
+# ── Maturity tiers ──
+
+MATURITY_TIERS = {
+    "EMERGING":     {"min_detections": 1,  "fade_after": 2},
+    "DEVELOPING":   {"min_detections": 4,  "fade_after": 5},
+    "ESTABLISHED":  {"min_detections": 11, "fade_after": 10},
+    "CORE":         {"min_detections": 30, "fade_after": 20},
+}
+
+
+def _compute_maturity(entry: Dict) -> str:
+    """Compute maturity tier based on detection count and confidence history."""
+    detection_count = entry.get("detection_count", 0)
+    conf_history = entry.get("confidence_history", [])
+
+    # CORE: 30+ detections OR HIGH confidence for 5+ consecutive recent runs
+    if detection_count >= 30:
+        return "CORE"
+    if len(conf_history) >= 5:
+        last_5 = [h.get("confidence") for h in conf_history[-5:]]
+        if all(c == "HIGH" for c in last_5):
+            return "CORE"
+
+    if detection_count >= 11:
+        return "ESTABLISHED"
+    if detection_count >= 4:
+        return "DEVELOPING"
+    return "EMERGING"
+
+
+def _fade_threshold(maturity: str) -> int:
+    """How many missed runs before fading, based on maturity."""
+    return MATURITY_TIERS.get(maturity, MATURITY_TIERS["EMERGING"])["fade_after"]
+
 # ── Helpers (unchanged) ──
 
 def _canonical(name: str) -> str:
@@ -92,7 +126,8 @@ def _ensure_tables():
                     existing_projects JSONB DEFAULT '[]',
                     references_ JSONB DEFAULT '[]',
                     confidence_history JSONB DEFAULT '[]',
-                    direction_history JSONB DEFAULT '[]'
+                    direction_history JSONB DEFAULT '[]',
+                    maturity TEXT DEFAULT 'EMERGING'
                 );
                 CREATE TABLE IF NOT EXISTS narrative_meta (
                     key TEXT PRIMARY KEY,
@@ -100,10 +135,13 @@ def _ensure_tables():
                 );
             """)
         conn.commit()
-        # Add existing_projects column if missing
+        # Add columns if missing
         with conn.cursor() as cur:
             cur.execute("""
                 ALTER TABLE narrative_store ADD COLUMN IF NOT EXISTS existing_projects JSONB DEFAULT '[]'
+            """)
+            cur.execute("""
+                ALTER TABLE narrative_store ADD COLUMN IF NOT EXISTS maturity TEXT DEFAULT 'EMERGING'
             """)
         conn.commit()
         _migrate_json_if_needed(conn)
@@ -158,8 +196,8 @@ def _upsert_narrative(cur, nid: str, entry: Dict):
         INSERT INTO narrative_store (id, name, canonical_name, status, first_detected, last_detected,
             last_updated, faded_at, detection_count, missed_count, current_confidence, current_direction,
             explanation, trend_evidence, market_opportunity, topics, all_signals, ideas, existing_projects, references_,
-            confidence_history, direction_history)
-        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            confidence_history, direction_history, maturity)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         ON CONFLICT (id) DO UPDATE SET
             name=EXCLUDED.name, canonical_name=EXCLUDED.canonical_name, status=EXCLUDED.status,
             first_detected=EXCLUDED.first_detected, last_detected=EXCLUDED.last_detected,
@@ -170,7 +208,8 @@ def _upsert_narrative(cur, nid: str, entry: Dict):
             market_opportunity=EXCLUDED.market_opportunity, topics=EXCLUDED.topics,
             all_signals=EXCLUDED.all_signals, ideas=EXCLUDED.ideas, existing_projects=EXCLUDED.existing_projects,
             references_=EXCLUDED.references_,
-            confidence_history=EXCLUDED.confidence_history, direction_history=EXCLUDED.direction_history
+            confidence_history=EXCLUDED.confidence_history, direction_history=EXCLUDED.direction_history,
+            maturity=EXCLUDED.maturity
     """, (
         nid,
         entry.get("name", ""),
@@ -194,6 +233,7 @@ def _upsert_narrative(cur, nid: str, entry: Dict):
         json.dumps(entry.get("references", [])),
         json.dumps(entry.get("confidence_history", [])),
         json.dumps(entry.get("direction_history", [])),
+        entry.get("maturity", "EMERGING"),
     ))
 
 
@@ -219,6 +259,7 @@ _COLUMNS = [
     "last_updated", "faded_at", "detection_count", "missed_count", "current_confidence",
     "current_direction", "explanation", "trend_evidence", "market_opportunity",
     "topics", "all_signals", "ideas", "existing_projects", "references_", "confidence_history", "direction_history",
+    "maturity",
 ]
 
 
@@ -354,6 +395,7 @@ def merge_narratives(new_narratives: List[Dict], store: Dict) -> Dict:
             entry["detection_count"] = entry.get("detection_count", 0) + 1
             entry["missed_count"] = 0
             entry["status"] = "ACTIVE"
+            entry["maturity"] = _compute_maturity(entry)
             entry["current_confidence"] = n.get("confidence", entry.get("current_confidence", "MEDIUM"))
             entry["current_direction"] = n.get("direction", entry.get("current_direction", "EMERGING"))
 
@@ -403,6 +445,7 @@ def merge_narratives(new_narratives: List[Dict], store: Dict) -> Dict:
                 "detection_count": 1,
                 "missed_count": 0,
                 "status": "ACTIVE",
+                "maturity": "EMERGING",
                 "confidence_history": [{"time": now, "confidence": n.get("confidence", "MEDIUM")}],
                 "direction_history": [{"time": now, "direction": n.get("direction", "EMERGING")}],
                 "current_confidence": n.get("confidence", "MEDIUM"),
@@ -422,7 +465,11 @@ def merge_narratives(new_narratives: List[Dict], store: Dict) -> Dict:
     for nid, entry in store["narratives"].items():
         if nid not in matched_ids and entry.get("status") == "ACTIVE":
             entry["missed_count"] = entry.get("missed_count", 0) + 1
-            if entry["missed_count"] >= 3:
+            # Recompute maturity (it doesn't change on miss, but ensure it's set)
+            if "maturity" not in entry:
+                entry["maturity"] = _compute_maturity(entry)
+            threshold = _fade_threshold(entry.get("maturity", "EMERGING"))
+            if entry["missed_count"] >= threshold:
                 entry["status"] = "FADED"
                 entry["faded_at"] = now
                 # Calculate age
@@ -544,6 +591,8 @@ def get_active_narrative_hints(store: Dict) -> List[str]:
             continue
         name = entry.get("name", "")
         count = entry.get("detection_count", 0)
+        confidence = entry.get("current_confidence", "MEDIUM")
+        maturity = entry.get("maturity") or _compute_maturity(entry)
         try:
             last = datetime.fromisoformat(entry.get("last_detected", ""))
             delta = now - last
@@ -556,7 +605,7 @@ def get_active_narrative_hints(store: Dict) -> List[str]:
                 ago = f"{delta.days}d ago"
         except Exception:
             ago = "unknown"
-        hints.append(f"- {name} (detected {count} times, last: {ago})")
+        hints.append(f'- "{name}" ({confidence}, {maturity}, detected {count} times, last: {ago})')
     return hints
 
 
@@ -587,6 +636,7 @@ def _compute_trending_status(entry: Dict) -> str:
 
 
 def store_entry_to_api(entry: Dict) -> Dict:
+    maturity = entry.get("maturity") or _compute_maturity(entry)
     return {
         "id": entry.get("id", ""),
         "name": entry.get("name", ""),
@@ -604,6 +654,8 @@ def store_entry_to_api(entry: Dict) -> Dict:
         "first_detected": entry.get("first_detected", ""),
         "last_detected": entry.get("last_detected", ""),
         "detection_count": entry.get("detection_count", 0),
+        "missed_count": entry.get("missed_count", 0),
+        "maturity": maturity,
         "confidence_history": entry.get("confidence_history", []),
         "direction_history": entry.get("direction_history", []),
         "total_pipeline_runs": 0,

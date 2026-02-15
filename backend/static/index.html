@@ -145,6 +145,11 @@
         .status-badge.stable { background: rgba(136,136,160,0.12); color: var(--text-secondary); }
         .status-badge.declining { background: rgba(248,113,113,0.12); color: var(--danger); }
         .status-badge.faded { background: rgba(92,92,116,0.12); color: var(--text-muted); opacity: 0.7; }
+        .maturity-badge { font-size: 0.6rem; font-weight: 600; padding: 2px 6px; border-radius: 6px; letter-spacing: 0.3px; white-space: nowrap; }
+        .maturity-core { background: rgba(168,85,247,0.2); color: #c4b5fd; }
+        .maturity-established { background: rgba(59,130,246,0.2); color: #93c5fd; }
+        .maturity-developing { background: rgba(34,197,94,0.15); color: #86efac; }
+        .maturity-emerging { background: rgba(250,204,21,0.15); color: #fde68a; }
 
         .sidebar-home {
             display: flex; align-items: center; gap: 8px;
@@ -899,6 +904,20 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
         const SOURCE_COLORS = { github: '#00d18c', twitter: '#1d9bf0', defillama: '#9945FF', defi: '#9945FF', reddit: '#ff4500', 'on-chain': '#14F195', onchain: '#14F195', jupiter: '#f5a623' };
         const KNOWN_KOLS = ['solana','aeyakovenko','rajgokal','0xmert_','jupiterexchange','driftprotocol','shaboronnikov','armaboronnikov','cburniske','lightcrypto'];
         const TREND_ARROWS = { accelerating: '↗', emerging: '→', stabilizing: '↘' };
+        const MATURITY_BADGES = { CORE: '💎', ESTABLISHED: '🏛️', DEVELOPING: '📈', EMERGING: '🌱' };
+        const MATURITY_ORDER = { CORE: 4, ESTABLISHED: 3, DEVELOPING: 2, EMERGING: 1 };
+        function maturityBadge(n) {
+            const m = (n.maturity || 'EMERGING').toUpperCase();
+            const icon = MATURITY_BADGES[m] || '🌱';
+            return `<span class="maturity-badge maturity-${m.toLowerCase()}" title="${m}">${icon} ${m}</span>`;
+        }
+        function maturityStability(n) {
+            const count = n.detection_count || 0;
+            if (count <= 1) return '';
+            const first = n.first_detected ? new Date(n.first_detected) : null;
+            const days = first ? Math.max(1, Math.round((Date.now() - first.getTime()) / 86400000)) : '?';
+            return `<span style="font-size:0.65rem;color:var(--text-muted)">Detected ${count}× over ${days}d</span>`;
+        }
 
         // === ROUTING ===
         function navigate(hash) {
@@ -986,6 +1005,7 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                 <div class="detail-header">
                     <div class="detail-title">${esc(n.name)}</div>
                     <div class="detail-badges">
+                        ${maturityBadge(n)}
                         ${n.status ? `<span class="status-badge ${(n.status||'').toLowerCase()}">${n.status}</span>` : ''}
                         <span class="badge badge-${conf}">${n.confidence}</span>
                         <span class="badge badge-${dir}">${n.direction || ''}</span>
@@ -1003,6 +1023,9 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                     <div class="summary-divider"></div>
                     <div class="summary-stat"><div class="stat-val" style="font-size:0.85rem">${age}</div><div class="stat-lbl">Age</div></div>
                     ${n.detection_count > 1 ? `<div class="summary-divider"></div><div class="summary-stat"><div class="stat-val">${n.detection_count}×</div><div class="stat-lbl">Detected</div></div>` : ''}
+                    <div class="summary-divider"></div>
+                    <div class="summary-stat"><div class="stat-val">${(MATURITY_BADGES[(n.maturity||'EMERGING').toUpperCase()]||'🌱')} ${n.maturity || 'EMERGING'}</div><div class="stat-lbl">Maturity</div></div>
+                    ${n.missed_count > 0 ? `<div class="summary-divider"></div><div class="summary-stat"><div class="stat-val">${n.missed_count}</div><div class="stat-lbl">Missed Runs</div></div>` : ''}
                 </div>
                 ${renderVelocity(n)}
                 <p class="detail-explanation">${esc(n.explanation || '')}</p>
@@ -1100,6 +1123,7 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                     <div class="sidebar-item-info">
                         <div class="sidebar-item-name" title="${esc(n.name)}">${esc(n.name)}</div>
                         <div class="sidebar-item-meta">
+                            ${maturityBadge(n)}
                             ${statusHtml}
                             <span class="sidebar-badge ${conf}">${conf}</span>
                             <span class="sidebar-trend ${trend}">${TREND_ARROWS[trend] || '→'} ${trend}</span>
@@ -1142,6 +1166,7 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                         <div class="grid-card-name">${esc(n.name)}</div>
                         <div class="grid-card-badges">
                             <span class="signal-count-badge" title="${signals.length} signals">${signals.length}</span>
+                            ${maturityBadge(n)}
                             ${isFaded ? '<span class="faded-badge">FADED</span>' : (n.status ? `<span class="status-badge ${(n.status||'').toLowerCase()}">${n.status}</span>` : '')}
                             <span class="badge badge-${conf}" style="font-size:0.65rem;padding:2px 8px">${n.confidence}</span>
                         </div>
@@ -1155,7 +1180,7 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                     </div>
                     <div class="grid-card-footer">
                         <span class="sidebar-trend ${trend}" style="font-size:0.75rem">${TREND_ARROWS[trend] || '→'} ${trend}</span>
-                        ${n.detection_count > 1 ? `<span>· <b>${n.detection_count}×</b> detected</span>` : ''}
+                        ${maturityStability(n)}
                         ${fadedTime}
                     </div>
                     ${renderCardSparkline(n, i)}
@@ -1952,8 +1977,17 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                 return true;
             });
             const confOrd = { HIGH: 3, MEDIUM: 2, LOW: 1 };
+            const matOrd = MATURITY_ORDER;
             if (sort === 'signals') filtered.sort((a, b) => (b.supporting_signals || []).length - (a.supporting_signals || []).length);
             else if (sort === 'confidence') filtered.sort((a, b) => (confOrd[b.confidence] || 0) - (confOrd[a.confidence] || 0));
+            // Always apply maturity as secondary sort (CORE first)
+            filtered.sort((a, b) => {
+                const primary = sort === 'signals' ? ((b.supporting_signals||[]).length - (a.supporting_signals||[]).length)
+                    : sort === 'confidence' ? ((confOrd[b.confidence]||0) - (confOrd[a.confidence]||0))
+                    : 0; // newest — keep original order as primary
+                if (primary !== 0) return primary;
+                return (matOrd[(b.maturity||'EMERGING').toUpperCase()]||1) - (matOrd[(a.maturity||'EMERGING').toUpperCase()]||1);
+            });
             return filtered;
         }
 

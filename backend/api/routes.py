@@ -88,6 +88,7 @@ async def get_all_narratives_endpoint():
         total_runs = load_store().get("total_pipeline_runs", 0)
 
         grouped = {"active": [], "faded": [], "historical": []}
+        by_maturity = {"CORE": [], "ESTABLISHED": [], "DEVELOPING": [], "EMERGING": []}
         for entry in all_entries:
             api_entry = store_entry_to_api(entry)
             api_entry["total_pipeline_runs"] = total_runs
@@ -99,9 +100,13 @@ async def get_all_narratives_endpoint():
                 grouped["faded"].append(api_entry)
             else:
                 grouped["historical"].append(api_entry)
+            mat = api_entry.get("maturity", "EMERGING")
+            if mat in by_maturity:
+                by_maturity[mat].append(api_entry)
 
         return {
             **grouped,
+            "by_maturity": by_maturity,
             "total_ever_detected": len(all_entries),
             "generated_at": datetime.now(timezone.utc).isoformat(),
         }

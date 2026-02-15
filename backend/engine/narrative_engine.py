@@ -162,12 +162,22 @@ def cluster_narratives(scored_signals: List[Dict], previous_narrative_hints: Lis
     # Format signals for the LLM, organized by pre-clusters
     signal_summary = format_signals_for_llm(top_signals, clusters=clusters)
     
-    # Build previous narrative hints section
+    # Build previous narrative hints section — strong anchoring to reduce name drift
     prev_section = ""
     if previous_narrative_hints:
-        prev_section = "\nPREVIOUSLY DETECTED NARRATIVES (reuse these exact names if the narrative still exists):\n"
-        prev_section += "\n".join(previous_narrative_hints[:15])
-        prev_section += "\n\nIMPORTANT: If a narrative from the list above still shows up in the signals, use the SAME NAME. Only create new names for genuinely new narratives.\n"
+        prev_section = """
+EXISTING NARRATIVES (from previous runs — re-confirm these if signals still support them, using the EXACT same name):
+"""
+        prev_section += "\n".join(previous_narrative_hints[:20])
+        prev_section += """
+
+CRITICAL NAMING RULES:
+- If an existing narrative above is still supported by current signals, you MUST include it with the EXACT SAME NAME (copy-paste the name in quotes).
+- Only drop an existing narrative if there is absolutely NO supporting evidence in the current signals.
+- Only create a NEW narrative name if it represents something genuinely different from all existing ones.
+- Do NOT rename, rephrase, or slightly modify existing narrative names — use them verbatim.
+- ESTABLISHED and CORE narratives should almost always be re-confirmed unless the trend has completely died.
+"""
     
     client = Anthropic(api_key=ANTHROPIC_API_KEY)
     
