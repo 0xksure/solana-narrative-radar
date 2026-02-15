@@ -1,7 +1,7 @@
-"""Collect signals from Reddit about Solana narratives"""
+"""Collect signals from Reddit about Solana narratives via Pullpush API"""
 import asyncio
 import logging
-import re
+import time
 from datetime import datetime
 from typing import List, Dict
 
@@ -36,8 +36,8 @@ TOPIC_MAP = {
     "development": ["rust", "anchor", "program", "smart contract", "deploy", "sdk", "developer"],
 }
 
-USER_AGENT = "SolanaNarrativeRadar/1.0"
-REQUEST_DELAY = 2.0  # seconds between requests
+PULLPUSH_BASE = "https://api.pullpush.io/reddit/search/submission/"
+REQUEST_DELAY = 1.0
 
 
 def _is_solana_related(text: str) -> bool:
@@ -54,8 +54,7 @@ def _extract_topics(text: str) -> List[str]:
     return topics if topics else ["other"]
 
 
-def _post_to_signal(post_data: dict, subreddit: str) -> Dict:
-    p = post_data
+def _post_to_signal(p: dict, subreddit: str) -> Dict:
     title = p.get("title", "")
     selftext = p.get("selftext", "")
     score = p.get("score", 0)
@@ -65,15 +64,13 @@ def _post_to_signal(post_data: dict, subreddit: str) -> Dict:
     author = p.get("author", "[deleted]")
     flair = p.get("link_flair_text", "")
 
-    combined_text = f"{title} {selftext}"
-
     return {
         "name": title,
         "content": selftext[:500] if selftext else title,
         "source": "reddit",
         "signal_type": "community_discussion",
-        "url": f"https://reddit.com{permalink}" if permalink else "",
-        "topics": _extract_topics(combined_text),
+        "url": f"https://reddit.com{permalink}" if permalink else f"https://reddit.com/r/{subreddit}",
+        "topics": _extract_topics(f"{title} {selftext}"),
         "engagement": score + num_comments,
         "timestamp": created_utc,
         "metadata": {
@@ -87,19 +84,36 @@ def _post_to_signal(post_data: dict, subreddit: str) -> Dict:
     }
 
 
-async def _fetch_subreddit(client: httpx.AsyncClient, subreddit: str, sort: str = "hot", limit: int = 50) -> List[dict]:
-    """Fetch posts from a subreddit. Returns raw post data dicts."""
+async def _fetch_subreddit_pullpush(client: httpx.AsyncClient, subreddit: str, size: int = 50) -> List[dict]:
+    """Fetch recent posts via Pullpush API (Pushshift replacement)."""
+    try:
+        resp = await client.get(PULLPUSH_BASE, params={
+            "subreddit": subreddit,
+            "size": size,
+            "sort": "desc",
+            "sort_type": "created_utc",
+        })
+        if resp.status_code == 200:
+            return resp.json().get("data", [])
+        else:
+            logger.warning("Pullpush r/%s returned %d", subreddit, resp.status_code)
+    except Exception as e:
+        logger.warning("Pullpush r/%s error: %s", subreddit, e)
+    return []
+
+
+async def _fetch_subreddit_reddit(client: httpx.AsyncClient, subreddit: str, sort: str = "hot", limit: int = 50) -> List[dict]:
+    """Fallback: try Reddit JSON API directly."""
     try:
         resp = await client.get(
-            f"https://old.reddit.com/r/{subreddit}/{sort}.json",
+            f"https://www.reddit.com/r/{subreddit}/{sort}.json",
             params={"limit": limit, "raw_json": 1},
+            headers={"User-Agent": "SolanaNarrativeRadar/1.0"},
         )
         if resp.status_code == 200:
-            return [child["data"] for child in resp.json().get("data", {}).get("children", []) if child.get("data")]
-        else:
-            logger.warning("Reddit r/%s/%s returned %d", subreddit, sort, resp.status_code)
-    except Exception as e:
-        logger.warning("Reddit r/%s/%s error: %s", subreddit, sort, e)
+            return [c["data"] for c in resp.json().get("data", {}).get("children", []) if c.get("data")]
+    except Exception:
+        pass
     return []
 
 
@@ -108,39 +122,48 @@ async def collect() -> List[Dict]:
     signals = []
     seen_ids = set()
 
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-    }
-    async with httpx.AsyncClient(timeout=15, headers=headers, follow_redirects=True) as client:
+    async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
         # Collect from Solana-native subreddits (all posts relevant)
         for sub in SOLANA_SUBREDDITS:
-            for sort in ("hot", "new"):
-                posts = await _fetch_subreddit(client, sub, sort, limit=50)
-                for p in posts:
-                    pid = p.get("id", "")
-                    if pid in seen_ids:
-                        continue
-                    seen_ids.add(pid)
-                    score = p.get("score", 0)
-                    if score >= 2 or sort == "new":
-                        signals.append(_post_to_signal(p, sub))
-                await asyncio.sleep(REQUEST_DELAY)
+            posts = await _fetch_subreddit_pullpush(client, sub, size=50)
+            if not posts:
+                posts = await _fetch_subreddit_reddit(client, sub)
+            for p in posts:
+                pid = p.get("id", "")
+                if pid in seen_ids:
+                    continue
+                seen_ids.add(pid)
+                signals.append(_post_to_signal(p, sub))
+            await asyncio.sleep(REQUEST_DELAY)
 
         # Collect from filtered subreddits (only Solana-related posts)
         for sub in FILTERED_SUBREDDITS:
-            for sort in ("hot", "new"):
-                posts = await _fetch_subreddit(client, sub, sort, limit=50)
-                for p in posts:
-                    pid = p.get("id", "")
-                    if pid in seen_ids:
-                        continue
-                    combined = f"{p.get('title', '')} {p.get('selftext', '')}"
-                    if _is_solana_related(combined):
-                        seen_ids.add(pid)
-                        signals.append(_post_to_signal(p, sub))
-                await asyncio.sleep(REQUEST_DELAY)
+            # Try keyword search via Pullpush
+            try:
+                resp = await client.get(PULLPUSH_BASE, params={
+                    "subreddit": sub,
+                    "q": "solana OR sol OR $SOL",
+                    "size": 50,
+                    "sort": "desc",
+                    "sort_type": "created_utc",
+                })
+                posts = resp.json().get("data", []) if resp.status_code == 200 else []
+            except Exception:
+                posts = []
+
+            if not posts:
+                posts = await _fetch_subreddit_reddit(client, sub)
+                posts = [p for p in posts if _is_solana_related(f"{p.get('title', '')} {p.get('selftext', '')}")]
+
+            for p in posts:
+                pid = p.get("id", "")
+                if pid in seen_ids:
+                    continue
+                combined = f"{p.get('title', '')} {p.get('selftext', '')}"
+                if _is_solana_related(combined):
+                    seen_ids.add(pid)
+                    signals.append(_post_to_signal(p, sub))
+            await asyncio.sleep(REQUEST_DELAY)
 
     # Sort by engagement
     signals.sort(key=lambda s: s.get("engagement", 0), reverse=True)
@@ -149,10 +172,8 @@ async def collect() -> List[Dict]:
     return signals
 
 
-# Standalone test
 if __name__ == "__main__":
     import json as _json
-
     logging.basicConfig(level=logging.INFO)
 
     async def _main():
@@ -161,7 +182,6 @@ if __name__ == "__main__":
         for s in results[:10]:
             print(f"[{s['metadata']['subreddit']}] (↑{s['metadata']['score']} 💬{s['metadata']['comments']}) {s['name'][:80]}")
         print(f"\n... and {max(0, len(results)-10)} more")
-        # Dump full first signal for inspection
         if results:
             print("\nSample signal:")
             print(_json.dumps(results[0], indent=2, default=str))
