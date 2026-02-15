@@ -336,6 +336,10 @@ def save_store(store: Dict):
                     ("last_updated", now),
                 )
             conn.commit()
+            logger.info("Saved %d narratives to PG", len(store.get("narratives", {})))
+        except Exception as e:
+            logger.error("Failed to save narratives to PG: %s", e, exc_info=True)
+            conn.rollback()
         finally:
             conn.close()
         store["last_updated"] = now
