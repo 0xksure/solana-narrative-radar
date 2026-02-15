@@ -70,6 +70,11 @@ async def collect_kol_tweets() -> List[Dict]:
     # Apply spam filter to twitter signals
     signals = filter_spam(signals)
     
+    # Apply authenticity verification and confidence scoring
+    from .tweet_verifier import verify_signals, filter_low_confidence
+    signals = verify_signals(signals)
+    signals = filter_low_confidence(signals, threshold=30)
+    
     logger.info("Social: %d signals (%d twitter, %d ecosystem, %d reddit)", len(signals), len(xbird_signals), len(ecosystem_signals), len(reddit_signals))
     return signals
 

@@ -78,6 +78,13 @@ def score_signals(signals: List[Dict]) -> List[Dict]:
             quality * 0.20
         )
 
+        # Weight by confidence score if present (from tweet_verifier)
+        confidence = s.get("confidence_score")
+        if confidence is not None:
+            # Scale: 100 confidence = 1.0x, 50 = 0.75x, 30 = 0.6x
+            confidence_multiplier = 0.5 + (confidence / 200)
+            total_score *= confidence_multiplier
+
         s["score"] = round(total_score, 1)
         s["score_breakdown"] = {
             "velocity": round(velocity, 1),
