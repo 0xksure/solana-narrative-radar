@@ -234,13 +234,16 @@ if os.path.exists(static_dir):
 @app.get("/")
 async def root():
     content = open(os.path.join(static_dir, "index.html"), "rb").read()
+    content_hash = hashlib.md5(content).hexdigest()[:12]
     return Response(
         content=content,
         media_type="text/html",
         headers={
-            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
             "Pragma": "no-cache",
             "Expires": "0",
+            "ETag": f'"{content_hash}"',
+            "Vary": "Accept-Encoding",
         },
     )
 
@@ -248,13 +251,16 @@ async def root():
 @app.get("/analytics")
 async def analytics_page():
     content = open(os.path.join(static_dir, "analytics.html"), "rb").read()
+    content_hash = hashlib.md5(content).hexdigest()[:12]
     return Response(
         content=content,
         media_type="text/html",
         headers={
-            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
             "Pragma": "no-cache",
             "Expires": "0",
+            "ETag": f'"{content_hash}"',
+            "Vary": "Accept-Encoding",
         },
     )
 
