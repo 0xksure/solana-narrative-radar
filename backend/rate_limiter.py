@@ -43,10 +43,12 @@ KEY_CACHE_TTL = 300  # 5 minutes
 _pool: Optional[asyncpg.Pool] = None
 
 
-async def get_pool() -> asyncpg.Pool:
+async def get_pool() -> Optional[asyncpg.Pool]:
     global _pool
+    if not DATABASE_URL:
+        return None
     if _pool is None:
-        _pool = await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=5)
+        _pool = await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=5, ssl="require")
     return _pool
 
 
@@ -70,6 +72,8 @@ async def lookup_api_key(key_hash: str) -> Optional[Tuple[int, str]]:
 
     try:
         pool = await get_pool()
+        if pool is None:
+            return None
         row = await pool.fetchrow(
             "SELECT id, tier FROM api_keys WHERE key_hash = $1", key_hash
         )
@@ -98,6 +102,8 @@ async def _update_last_used(pool, key_id: int):
 async def log_usage(api_key_id: Optional[int], ip_hash: str, endpoint: str, method: str, response_time_ms: int, status_code: int):
     try:
         pool = await get_pool()
+        if pool is None:
+            return
         await pool.execute(
             """INSERT INTO api_usage_log (api_key_id, ip_hash, endpoint, method, timestamp, response_time_ms, status_code)
                VALUES ($1, $2, $3, $4, NOW(), $5, $6)""",
@@ -224,6 +230,8 @@ async def register_key(name: str, email: str) -> dict:
 async def get_key_usage(raw_key: str) -> Optional[dict]:
     key_hash_val = hash_key(raw_key)
     pool = await get_pool()
+    if pool is None:
+        return {"error": "Database not configured"}
     row = await pool.fetchrow(
         "SELECT id, key_prefix, name, email, tier, created_at, last_used_at, requests_today, requests_total FROM api_keys WHERE key_hash = $1",
         key_hash_val,
