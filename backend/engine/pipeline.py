@@ -18,6 +18,8 @@ from collectors.coingecko_collector import collect_coingecko_trending
 from collectors.solana_ecosystem_collector import collect_solana_ecosystem
 from collectors.dexscreener_collector import collect_dexscreener
 from collectors.reddit_collector import collect as collect_reddit
+from collectors.governance_collector import collect as collect_governance
+from collectors.news_collector import collect as collect_news
 from collectors.pump_fun_collector import collect as collect_pump_fun
 from collectors.jupiter_collector import collect as collect_jupiter
 from engine.scorer import score_signals
@@ -61,10 +63,16 @@ async def run_pipeline() -> Dict:
     logger.info("[8/9] Collecting Reddit signals")
     reddit_signals = await collect_reddit()
     
-    logger.info("[9/9] Collecting DexScreener trending")
+    logger.info("[9/11] Collecting DexScreener trending")
     dexscreener_signals = await collect_dexscreener()
     
-    all_signals = github_new + github_trending + defi_signals + social_signals + onchain_signals + birdeye_signals + coingecko_signals + ecosystem_signals + reddit_signals + dexscreener_signals
+    logger.info("[10/11] Collecting Pump.fun signals")
+    pump_fun_signals = await collect_pump_fun()
+    
+    logger.info("[11/11] Collecting Jupiter signals")
+    jupiter_signals = await collect_jupiter()
+    
+    all_signals = github_new + github_trending + defi_signals + social_signals + onchain_signals + birdeye_signals + coingecko_signals + ecosystem_signals + reddit_signals + dexscreener_signals + pump_fun_signals + jupiter_signals
     logger.info("Collected %d raw signals", len(all_signals))
     
     # Phase 2: Score signals
