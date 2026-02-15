@@ -633,7 +633,23 @@
     <script src="https://browser.sentry-cdn.com/8.0.0/bundle.min.js" crossorigin="anonymous"></script>
     <script>
         if (typeof Sentry !== 'undefined') {
-            Sentry.init({ dsn: "https://3536aa355800a646a43c003d5e43baf8@o4510503621296128.ingest.de.sentry.io/4510877888938064" });
+            Sentry.init({
+                dsn: "https://3536aa355800a646a43c003d5e43baf8@o4510503621296128.ingest.de.sentry.io/4510877888938064",
+                environment: "production",
+                tracesSampleRate: 0.1,
+                beforeSend(event) {
+                    // Drop noisy network errors from extensions
+                    if (event.exception?.values?.[0]?.value?.includes('chrome-extension')) return null;
+                    return event;
+                },
+                integrations: [Sentry.browserTracingIntegration()],
+            });
+            // Helper: add breadcrumb for key user actions
+            window._sentryBreadcrumb = function(category, message, data) {
+                Sentry.addBreadcrumb({ category, message, level: 'info', data });
+            };
+        } else {
+            window._sentryBreadcrumb = function() {};
         }
     </script>
 </head>
@@ -865,7 +881,9 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                         if (mobileEl) mobileEl.style.animation = '';
                         loadReport();
                     }
-                } catch(e) {}
+                } catch(e) {
+                    if (typeof Sentry !== 'undefined') Sentry.captureException(e);
+                }
             }
             function tick() {
                 if (!el || !nextRun) return;
@@ -924,6 +942,7 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
 
         // === ROUTING ===
         function navigate(hash) {
+            _sentryBreadcrumb('navigation', 'navigate', { hash });
             window.location.hash = hash;
         }
 
@@ -1679,6 +1698,7 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
 
         // === API ===
         async function loadReport() {
+            _sentryBreadcrumb('data', 'loadReport started');
             // Show cached data instantly if available
             try {
                 const cached = localStorage.getItem('nr_cached_report');
@@ -1778,7 +1798,7 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                     }).join('');
                 }
                 historicalLoaded = true;
-            } catch(e) { console.error('Failed to load historical:', e); }
+            } catch(e) { console.error('Failed to load historical:', e); if (typeof Sentry !== 'undefined') Sentry.captureException(e); }
         }
 
         function toggleHistorical() {
