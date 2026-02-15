@@ -299,13 +299,21 @@ For each idea:
 9. Reference links: URLs of existing similar products or inspirations
 10. Key metrics: 3-5 quantified metrics with context (addressable market size, competition count, time to market, user base estimate, etc.)
 
-Additionally, identify 3-8 existing Solana projects that are actively building in this narrative's space. These should be real, verifiable projects.
+Additionally, identify 3-8 existing Solana projects that are actively building in this narrative's space.
+
+CRITICAL RULES FOR EXISTING PROJECTS:
+- Only include projects you are CERTAIN about. Do NOT hallucinate or guess.
+- Each project MUST be a real, verifiable project on Solana with an active website or Twitter.
+- The description MUST accurately reflect what the project ACTUALLY does — not what you think it might do.
+- Do NOT misclassify projects. For example: Helium is a DePIN/IoT network, NOT an AI company. Jupiter is a DEX aggregator, NOT a lending protocol.
+- If you're unsure about a project's exact focus, DO NOT include it.
+- Better to list 3 accurate projects than 8 with errors.
 
 For each existing project:
-1. Name (official project name)
-2. Description: 1 sentence on what they do
-3. URL: official website or Twitter
-4. Relevance: why they're relevant to this narrative
+1. Name (official project name — exact spelling)
+2. Description: 1 sentence on what they ACTUALLY do (be precise, no speculation)
+3. URL: official website (must be real)
+4. Relevance: why they're relevant to this specific narrative
 5. Category: LEADER (dominant), GROWING (gaining traction), or EMERGING (new/small)
 
 Respond in JSON:
