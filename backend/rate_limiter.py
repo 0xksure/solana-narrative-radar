@@ -130,14 +130,16 @@ def _get_reset_time() -> int:
 
 # Paths to skip rate limiting
 SKIP_PATHS = {"/", "/health", "/docs", "/openapi.json", "/redoc"}
+# Frontend paths that shouldn't count against API rate limits
+FRONTEND_SKIP_PREFIXES = ("/img/", "/assets/", "/static/", "/api/pipeline-status", "/api/analytics", "/api/narratives")
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
         
-        # Skip static files and non-API paths
-        if path in SKIP_PATHS or path.startswith("/assets") or path.startswith("/static"):
+        # Skip static files, non-API paths, and frontend-essential endpoints
+        if path in SKIP_PATHS or any(path.startswith(p) for p in FRONTEND_SKIP_PREFIXES):
             return await call_next(request)
 
         start_time = time.time()
