@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from api.routes import router
 from contextlib import asynccontextmanager
@@ -233,12 +233,30 @@ if os.path.exists(static_dir):
 
 @app.get("/")
 async def root():
-    return FileResponse(os.path.join(static_dir, "index.html"))
+    content = open(os.path.join(static_dir, "index.html"), "rb").read()
+    return Response(
+        content=content,
+        media_type="text/html",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
 
 
 @app.get("/analytics")
 async def analytics_page():
-    return FileResponse(os.path.join(static_dir, "analytics.html"))
+    content = open(os.path.join(static_dir, "analytics.html"), "rb").read()
+    return Response(
+        content=content,
+        media_type="text/html",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
 
 
 @app.get("/health")
