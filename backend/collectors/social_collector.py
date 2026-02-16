@@ -591,8 +591,12 @@ def filter_spam(signals: List[Dict]) -> List[Dict]:
         if len(ticker_mentions) > 3:
             continue
         
-        # Skip scam pattern: "airdrop" + "claim" + URL
+        # Skip token shill tweets — primarily promoting a specific token
         content_lower = content.lower()
+        if _is_token_shill(content, content_lower, ticker_mentions):
+            continue
+        
+        # Skip scam pattern: "airdrop" + "claim" + URL
         if ("airdrop" in content_lower and "claim" in content_lower
                 and re.search(r'https?://', content)):
             continue
@@ -618,6 +622,10 @@ def filter_spam(signals: List[Dict]) -> List[Dict]:
         if normalized in seen_texts:
             continue
         seen_texts.add(normalized)
+        
+        # Skip bot engagement signals
+        if _is_bot_engagement(signal):
+            continue
         
         # Compute and attach relevance score
         signal["relevance_score"] = _compute_relevance_score(signal)
@@ -662,3 +670,95 @@ def _extract_topics(text: str) -> List[str]:
             topics.append(topic)
     
     return topics if topics else ["other"]
+
+
+def _is_token_shill(content: str, content_lower: str, tickers: list) -> bool:
+    """Detect tweets that are primarily shilling/promoting a specific token.
+    
+    Returns True if the tweet is a token promotion with no real narrative value.
+    """
+    # Token shill patterns
+    shill_patterns = [
+        r'\$[A-Z]{2,10}\s+(is\s+)?(about\s+to|going\s+to|gonna)\s+(moon|pump|explode|10x|100x)',
+        r'(buy|load\s+up|accumulate|bag)\s+\$[A-Z]{2,10}',
+        r'\$[A-Z]{2,10}\s+(to\s+)?\$?\d+',  # "$TOKEN to $100"
+        r'(next\s+)(100|1000|10)x',
+        r'(still\s+early|so\s+early|very\s+early)\s*(on|for)?\s*\$',
+        r'(gem|alpha).{0,20}\$[A-Z]{2,10}',
+        r'(don\'?t\s+sleep\s+on|sleeping\s+on)\s+\$',
+        r'\$[A-Z]{2,10}\s+(community|army|gang|fam)\b',
+        r'(ape|aped|aping)\s+(in|into)\s+\$',
+        r'(bags?\s+(are\s+)?loaded|loaded\s+bags?)',
+        r'(nfa|not\s+financial\s+advice|dyor).{0,30}\$[A-Z]{2,10}',
+    ]
+    
+    shill_hits = sum(1 for p in shill_patterns if re.search(p, content_lower))
+    
+    # If content has 2+ shill patterns, it's a shill
+    if shill_hits >= 2:
+        return True
+    
+    # Single ticker dominating the tweet with price/moon language
+    if len(tickers) >= 1 and shill_hits >= 1:
+        # Check if the tweet has any substantive narrative content
+        narrative_terms = ["protocol", "governance", "tvl", "integration", "upgrade",
+                          "partnership", "deployed", "mainnet", "launch", "shipped",
+                          "building", "development", "infrastructure", "validator",
+                          "proposal", "audit", "security", "ecosystem"]
+        has_substance = any(t in content_lower for t in narrative_terms)
+        if not has_substance:
+            return True
+    
+    # Contract address in tweet = almost always a shill
+    if re.search(r'[1-9A-HJ-NP-Za-km-z]{32,44}', content) and len(tickers) >= 1:
+        return True
+    
+    # "Just launched" + ticker = token shill
+    if re.search(r'just\s+(launched|listed|dropped)', content_lower) and len(tickers) >= 1:
+        narrative_terms = ["protocol", "feature", "upgrade", "mainnet", "v2", "integration"]
+        if not any(t in content_lower for t in narrative_terms):
+            return True
+    
+    return False
+
+
+def _is_bot_engagement(signal: Dict) -> bool:
+    """Detect signals that likely have fake/bot engagement.
+    
+    Checks for patterns common in coordinated bot campaigns.
+    """
+    content = signal.get("content", "")
+    content_lower = content.lower()
+    author = signal.get("author", "").lower()
+    replies = signal.get("replies", 0)
+    likes = signal.get("likes", 0)
+    retweets = signal.get("retweets", 0)
+    
+    # Very high replies but low likes = bot comment farm
+    if replies > 50 and likes > 0 and replies / likes > 3:
+        return True
+    
+    # Known bot army patterns in author names
+    bot_name_patterns = [
+        r'(real|official|true|the)\s*(army|gang|community|fam)$',
+        r'[A-Z]{2,5}(army|gang|maxi|bull)$',
+        r'^\w{2,4}\d{6,}$',  # short name + many digits
+    ]
+    if any(re.search(p, author, re.I) for p in bot_name_patterns):
+        return True
+    
+    # Generic hype with no substance from non-KOL accounts
+    generic_hype = [
+        r'^(bullish|so bullish|very bullish|extremely bullish)',
+        r'^(lfg|let\'?s\s+go|lessgoo|wagmi)',
+        r'^(this\s+is\s+(huge|massive|big)|massive\s+news)',
+        r'^(to\s+the\s+moon|moon\s+soon)',
+    ]
+    kol_lower = {k.lower() for k in SOLANA_KOLS}
+    if author not in kol_lower:
+        if any(re.match(p, content_lower.strip()) for p in generic_hype):
+            word_count = len(content.split())
+            if word_count < 15:
+                return True
+    
+    return False

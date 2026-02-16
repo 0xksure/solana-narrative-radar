@@ -180,6 +180,19 @@ def _content_score(content: str, content_lower: str) -> int:
     if emoji_count > 8:
         adj -= 10
     
+    # Token shill language penalty
+    shill_terms = ["moon", "100x", "10x", "1000x", "gem", "alpha call", "ape in",
+                   "bags loaded", "still early", "don't sleep", "nfa", "dyor"]
+    shill_hits = sum(1 for t in shill_terms if t in content_lower)
+    if shill_hits >= 2:
+        adj -= 25
+    elif shill_hits == 1:
+        adj -= 10
+    
+    # Bot army / coordinated campaign patterns
+    if re.search(r'(army|gang|community)\s*(assemble|rise|unite|strong)', content_lower):
+        adj -= 20
+    
     # Substantive content bonus
     word_count = len(content.split())
     if word_count > 30:
