@@ -747,6 +747,7 @@
                         <button class="filter-toggle" data-filter="direction" data-value="DECELERATING" onclick="toggleFilter(this)">DECELERATING</button>
                     </div>
                     <button class="filter-toggle" id="show-hidden-spam" onclick="showHiddenSpam=!showHiddenSpam;this.classList.toggle('active');applyFilters()" title="Show spam-hidden narratives">🚩 Hidden</button>
+                    <button class="filter-toggle" id="show-archive" onclick="toggleArchive()" title="Show archived/faded narratives">📁 Archive</button>
                     <select class="filter-sort" id="filter-sort" onchange="applyFilters()">
                         <option value="newest">Sort: Newest</option>
                         <option value="signals">Sort: Most Signals</option>
@@ -928,6 +929,8 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
         }
 
         let currentNarratives = [];
+        let archivedNarratives = [];
+        let showingArchive = false;
         let reportGeneratedAt = null;
         let chartInstances = {};
         let isGenerating = false;
@@ -1173,7 +1176,20 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
         function renderOverviewGrid(narratives) {
             const grid = document.getElementById('narrative-grid');
             const filtered = getFilteredNarratives(narratives);
-            if (!filtered.length) {
+
+            // Append archived narratives when archive toggle is on
+            let archiveFiltered = [];
+            if (showingArchive && archivedNarratives.length) {
+                const q = (document.getElementById('filter-search')?.value || '').trim().toLowerCase();
+                archiveFiltered = archivedNarratives.filter(n => {
+                    if (q && !n.name.toLowerCase().includes(q)) return false;
+                    // Don't show archived ones that are already in active list
+                    if (filtered.some(f => f.name === n.name)) return false;
+                    return true;
+                });
+            }
+
+            if (!filtered.length && !archiveFiltered.length) {
                 grid.innerHTML = '<div style="text-align:center;padding:48px;color:var(--text-muted)"><p>No narratives match your filters. Try adjusting search or filters above.</p></div>';
                 return;
             }
@@ -1225,6 +1241,30 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
             if (faded.length) {
                 html += `<div class="faded-section-title" style="grid-column:1/-1"><img src="/img/declining.png" class="icon-sm"> Recently Faded (${faded.length})</div>`;
                 html += faded.map(renderCard).join('');
+            }
+            if (archiveFiltered.length) {
+                html += `<div class="faded-section-title" style="grid-column:1/-1;margin-top:24px">📁 Archive — Past Narratives (${archiveFiltered.length})</div>`;
+                html += archiveFiltered.map(n => {
+                    const conf = (n.confidence || 'low').toLowerCase();
+                    const signals = n.supporting_signals || [];
+                    const fadedDate = n.faded_at || n.last_detected || '';
+                    const firstDate = n.first_detected || '';
+                    const lifespan = firstDate && fadedDate ? `${firstDate.slice(0,10)} → ${fadedDate.slice(0,10)}` : '';
+                    const detections = n.detection_count || n.total_detections || 0;
+                    return `<div class="narrative-grid-card confidence-${conf} faded-card" style="opacity:0.7;border-left:3px solid var(--text-muted)">
+                        <div class="grid-card-header">
+                            <span class="grid-card-conf badge-${conf}">${(n.confidence || 'LOW').toUpperCase()}</span>
+                            <span style="font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px">${n.maturity || 'FADED'}</span>
+                        </div>
+                        <h3 class="grid-card-title">${n.name}</h3>
+                        <p class="grid-card-desc">${(n.explanation || '').slice(0, 120)}${(n.explanation || '').length > 120 ? '...' : ''}</p>
+                        <div style="display:flex;gap:12px;font-size:0.7rem;color:var(--text-muted);margin-top:8px">
+                            <span>${signals.length} signals</span>
+                            <span>${detections} detections</span>
+                            ${lifespan ? `<span>${lifespan}</span>` : ''}
+                        </div>
+                    </div>`;
+                }).join('');
             }
             grid.innerHTML = html;
         }
@@ -1992,6 +2032,33 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                 if (f === 'confidence') btn.classList.add('active-' + v.toLowerCase());
             }
             if (window.mixpanel) mixpanel.track('Filter Applied', {filter: f, value: v});
+            applyFilters();
+        }
+
+        async function toggleArchive() {
+            const btn = document.getElementById('show-archive');
+            showingArchive = !showingArchive;
+            btn.classList.toggle('active');
+            if (showingArchive) {
+                btn.textContent = '📁 Archive (loading...)';
+                try {
+                    const resp = await fetch('/api/narratives/all');
+                    const data = await resp.json();
+                    archivedNarratives = (data.faded || []).map(n => ({...n, _archived: true}));
+                    // Sort by faded_at descending (most recently faded first)
+                    archivedNarratives.sort((a, b) => {
+                        const da = a.faded_at || a.last_detected || '';
+                        const db = b.faded_at || b.last_detected || '';
+                        return db.localeCompare(da);
+                    });
+                    btn.textContent = '📁 Archive (' + archivedNarratives.length + ')';
+                } catch(e) {
+                    btn.textContent = '📁 Archive (error)';
+                    archivedNarratives = [];
+                }
+            } else {
+                btn.textContent = '📁 Archive';
+            }
             applyFilters();
         }
 
