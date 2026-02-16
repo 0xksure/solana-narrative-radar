@@ -10,3 +10,5 @@ sentry-sdk[fastapi]==2.19.2
 psycopg2-binary==2.9.9
 yoyo-migrations
 python-telegram-bot==21.3
+PyNaCl>=1.5.0
+PyJWT>=2.0.0

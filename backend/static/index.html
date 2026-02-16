@@ -674,6 +674,11 @@
             <a href="https://github.com/0xksure/solana-narrative-radar#readme" target="_blank" class="nav-link">Methodology</a>
             <a href="https://github.com/0xksure/solana-narrative-radar" target="_blank" class="nav-link">GitHub</a>
             <span class="nav-badge"><span class="pulse"></span> Live</span>
+            <button id="wallet-btn" class="btn btn-sm" onclick="connectWallet()" style="margin-left:8px;background:var(--accent)">Connect Wallet</button>
+            <span id="wallet-info" style="display:none;margin-left:8px;font-size:0.8rem;color:var(--text-secondary)">
+                <span id="wallet-addr"></span>
+                <button onclick="disconnectWallet()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.75rem;margin-left:4px">✕</button>
+            </span>
         </div>
     </nav>
 
@@ -741,6 +746,7 @@
                         <button class="filter-toggle" data-filter="direction" data-value="EMERGING" onclick="toggleFilter(this)">EMERGING</button>
                         <button class="filter-toggle" data-filter="direction" data-value="DECELERATING" onclick="toggleFilter(this)">DECELERATING</button>
                     </div>
+                    <button class="filter-toggle" id="show-hidden-spam" onclick="showHiddenSpam=!showHiddenSpam;this.classList.toggle('active');applyFilters()" title="Show spam-hidden narratives">🚩 Hidden</button>
                     <select class="filter-sort" id="filter-sort" onchange="applyFilters()">
                         <option value="newest">Sort: Newest</option>
                         <option value="signals">Sort: Most Signals</option>
@@ -1369,7 +1375,9 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                 tvlChart = `<div class="tvl-mini-chart-wrap"><canvas id="${cid}" width="120" height="60" data-tvl='${JSON.stringify(s.tvl_history)}'></canvas></div>`;
             }
             const meta = renderSignalMeta(s);
-            return `<div class="signal-item"><div class="signal-main">${badge}${text}${tvlChart}</div>${comment}${meta}</div>`;
+            const sigId = s.url || s.text || `sig-${si}`;
+            const spamBtn = renderSpamButton(sigId);
+            return `<div class="signal-item"><div class="signal-main" style="display:flex;align-items:start;gap:6px">${badge}${text}${tvlChart}${spamBtn}</div>${comment}${meta}</div>`;
         }
 
         function renderSignalMeta(s) {
@@ -1734,6 +1742,7 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                     handleRoute();
                     autoSelectFirst();
                     loadHistorical();
+                    loadSpamCounts().then(() => { if (walletPubkey) renderOverviewGrid(data.narratives); });
                 } else {
                     document.getElementById('narrative-grid').innerHTML = '<div style="text-align:center;padding:48px;color:var(--text-muted)"><p>No narratives detected yet. The pipeline runs every 2 hours — check back soon.</p></div>';
                     dismissLoadingOverlay();
@@ -1995,6 +2004,17 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
             requestAnimationFrame(createCardSparklines);
         }
 
+        function getNarrativeSpamScore(n) {
+            // Sum spam counts for all signals in this narrative
+            const signals = n.supporting_signals || [];
+            let total = 0;
+            signals.forEach(s => {
+                const sid = s.url || s.text || '';
+                total += (spamCounts[sid] || 0);
+            });
+            return total;
+        }
+
         function getFilteredNarratives(narratives) {
             const q = (document.getElementById('filter-search')?.value || '').trim().toLowerCase();
             const sortEl = document.getElementById('filter-sort');
@@ -2007,7 +2027,15 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                     const mapped = nDir === 'STABILIZING' ? 'STABLE' : nDir === 'DECLINING' ? 'DECELERATING' : nDir;
                     if (!activeFilters.direction.includes(mapped)) return false;
                 }
+                // Hide narratives with 10+ total spam reports (unless show hidden toggle)
+                if (!showHiddenSpam && getNarrativeSpamScore(n) >= 10) return false;
                 return true;
+            });
+            // Demote narratives with 5+ spam reports
+            filtered.sort((a, b) => {
+                const sa = getNarrativeSpamScore(a) >= 5 ? 1 : 0;
+                const sb = getNarrativeSpamScore(b) >= 5 ? 1 : 0;
+                return sa - sb;
             });
             const confOrd = { HIGH: 3, MEDIUM: 2, LOW: 1 };
             const matOrd = MATURITY_ORDER;
@@ -2081,6 +2109,123 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                 return keywords.some(k => name.includes(k));
             }).slice(0, 5);
         }
+
+        // === WALLET AUTH ===
+        let walletPubkey = null;
+        let walletToken = null;
+        let spamCounts = {};
+        let mySpamReports = new Set();
+
+        function restoreWalletSession() {
+            try {
+                const saved = localStorage.getItem('nr_wallet_session');
+                if (saved) {
+                    const s = JSON.parse(saved);
+                    walletPubkey = s.pubkey;
+                    walletToken = s.token;
+                    showWalletConnected();
+                    loadSpamCounts();
+                }
+            } catch(e) {}
+        }
+
+        function showWalletConnected() {
+            document.getElementById('wallet-btn').style.display = 'none';
+            document.getElementById('wallet-info').style.display = 'inline';
+            const addr = walletPubkey;
+            document.getElementById('wallet-addr').textContent = addr.slice(0, 4) + '...' + addr.slice(-4);
+        }
+
+        async function connectWallet() {
+            const provider = window.phantom?.solana || window.solana;
+            if (!provider || !provider.isPhantom) {
+                window.open('https://phantom.app/', '_blank');
+                return;
+            }
+            try {
+                const resp = await provider.connect();
+                const pubkey = resp.publicKey.toString();
+                const timestamp = Date.now();
+                const message = `Sign in to Narrative Radar: ${timestamp}`;
+                const encodedMsg = new TextEncoder().encode(message);
+                const signed = await provider.signMessage(encodedMsg, 'utf8');
+                const sigBase64 = btoa(String.fromCharCode(...signed.signature));
+
+                // Verify with backend
+                const r = await fetch('/api/verify-wallet', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ pubkey, message, signature: sigBase64 })
+                });
+                if (!r.ok) { const d = await r.json(); alert('Verification failed: ' + (d.detail || 'unknown')); return; }
+                const data = await r.json();
+                walletPubkey = data.pubkey;
+                walletToken = data.token;
+                localStorage.setItem('nr_wallet_session', JSON.stringify({ pubkey: walletPubkey, token: walletToken }));
+                showWalletConnected();
+                loadSpamCounts();
+                // Re-render to show spam buttons
+                if (currentNarratives.length) renderOverviewGrid(currentNarratives);
+            } catch(e) {
+                console.error('Wallet connect error:', e);
+            }
+        }
+
+        function disconnectWallet() {
+            walletPubkey = null;
+            walletToken = null;
+            localStorage.removeItem('nr_wallet_session');
+            document.getElementById('wallet-btn').style.display = '';
+            document.getElementById('wallet-info').style.display = 'none';
+            spamCounts = {};
+            mySpamReports = new Set();
+            if (currentNarratives.length) renderOverviewGrid(currentNarratives);
+        }
+
+        async function loadSpamCounts() {
+            try {
+                const r = await fetch('/api/signal/spam-counts');
+                if (r.ok) spamCounts = await r.json();
+            } catch(e) {}
+        }
+
+        async function reportSpam(signalId, btn) {
+            if (!walletPubkey || !walletToken) return;
+            if (!confirm('Report this signal as spam?')) return;
+            btn.disabled = true;
+            try {
+                const r = await fetch('/api/signal/spam', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + walletToken
+                    },
+                    body: JSON.stringify({ signal_id: signalId, wallet: walletPubkey })
+                });
+                if (r.ok) {
+                    const d = await r.json();
+                    mySpamReports.add(signalId);
+                    spamCounts[signalId] = (spamCounts[signalId] || 0) + (d.status === 'already_reported' ? 0 : 1);
+                    btn.textContent = '🚩 ' + (spamCounts[signalId] || 0);
+                    btn.style.color = 'var(--danger)';
+                }
+            } catch(e) { console.error(e); }
+            btn.disabled = false;
+        }
+
+        function renderSpamButton(signalId) {
+            if (!walletPubkey) return '';
+            const count = spamCounts[signalId] || 0;
+            const reported = mySpamReports.has(signalId);
+            return `<button onclick="event.stopPropagation();reportSpam('${signalId}',this)" 
+                style="background:none;border:1px solid var(--border);border-radius:12px;padding:2px 8px;font-size:0.65rem;cursor:pointer;color:${reported ? 'var(--danger)' : 'var(--text-muted)'};margin-left:auto;flex-shrink:0"
+                ${reported ? 'disabled title="Already reported"' : 'title="Report spam"'}>🚩${count > 0 ? ' ' + count : ''}</button>`;
+        }
+
+        // Show hidden signals toggle for spam
+        let showHiddenSpam = false;
+
+        restoreWalletSession();
 
         initFiltersFromURL();
         loadReport();

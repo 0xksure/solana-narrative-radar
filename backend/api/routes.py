@@ -725,6 +725,9 @@ def _compute_risk(confidence: str, direction: str) -> str:
 
 router.include_router(agent_router)
 
+from api.wallet_auth import router as wallet_router
+router.include_router(wallet_router)
+
 
 # ── Telegram Bot Endpoints ──
 
