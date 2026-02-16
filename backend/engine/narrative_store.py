@@ -350,10 +350,65 @@ def save_store(store: Dict):
         _save_store_json(store)
 
 
-def find_match(canonical_name: str, store: Dict, threshold: float = 0.5) -> Optional[str]:
+# Common Solana narrative aliases/acronyms
+_ALIASES = {
+    "rwa": "real world asset",
+    "depin": "decentralized physical infrastructure",
+    "defi": "decentralized finance",
+    "nft": "non fungible token",
+    "dao": "decentralized autonomous organization",
+    "lsd": "liquid staking derivative",
+    "lst": "liquid staking token",
+    "ai": "artificial intelligence",
+    "mev": "maximal extractable value",
+    "zk": "zero knowledge",
+    "amm": "automated market maker",
+    "dex": "decentralized exchange",
+    "perps": "perpetual futures",
+    "restaking": "re staking",
+}
+
+
+def _expand_aliases(canonical: str) -> str:
+    """Expand known acronyms in canonical name."""
+    words = canonical.split()
+    expanded = []
+    for w in words:
+        if w in _ALIASES:
+            expanded.extend(_ALIASES[w].split())
+        else:
+            expanded.append(w)
+    return " ".join(expanded)
+
+
+def _containment_score(a: str, b: str) -> float:
+    """Check if one name is a subset of the other."""
+    wa, wb = set(a.split()), set(b.split())
+    if not wa or not wb:
+        return 0.0
+    if wa.issubset(wb) or wb.issubset(wa):
+        return 0.85
+    return 0.0
+
+
+def find_match(canonical_name: str, store: Dict, threshold: float = 0.45) -> Optional[str]:
     best_id, best_score = None, threshold
+    expanded_new = _expand_aliases(canonical_name)
     for nid, entry in store.get("narratives", {}).items():
-        score = _word_overlap(canonical_name, entry.get("canonical_name", ""))
+        existing_canon = entry.get("canonical_name", "")
+        expanded_existing = _expand_aliases(existing_canon)
+
+        # Word overlap on expanded forms
+        score = _word_overlap(expanded_new, expanded_existing)
+
+        # Containment boost — if one is subset of other
+        cont = _containment_score(expanded_new, expanded_existing)
+        score = max(score, cont)
+
+        # Also try original (unexpanded) overlap
+        orig_score = _word_overlap(canonical_name, existing_canon)
+        score = max(score, orig_score)
+
         if score > best_score:
             best_id, best_score = nid, score
     return best_id
@@ -480,6 +535,47 @@ def merge_narratives(new_narratives: List[Dict], store: Dict) -> Dict:
                 "references": n.get("references", []),
             }
             matched_ids.add(nid)
+
+    # ── Post-merge dedup: merge any existing narratives that are too similar ──
+    all_ids = list(store["narratives"].keys())
+    merged_away = set()
+    for i, id_a in enumerate(all_ids):
+        if id_a in merged_away:
+            continue
+        entry_a = store["narratives"][id_a]
+        canon_a = entry_a.get("canonical_name", "")
+        for j in range(i + 1, len(all_ids)):
+            id_b = all_ids[j]
+            if id_b in merged_away:
+                continue
+            entry_b = store["narratives"][id_b]
+            canon_b = entry_b.get("canonical_name", "")
+
+            expanded_a = _expand_aliases(canon_a)
+            expanded_b = _expand_aliases(canon_b)
+            score = max(_word_overlap(expanded_a, expanded_b), _containment_score(expanded_a, expanded_b))
+
+            if score >= 0.6:
+                # Merge into the one with more detections
+                keep, discard = (id_a, id_b) if entry_a.get("detection_count", 0) >= entry_b.get("detection_count", 0) else (id_b, id_a)
+                keep_entry = store["narratives"][keep]
+                discard_entry = store["narratives"][discard]
+
+                keep_entry["all_signals"] = _dedup_signals(
+                    keep_entry.get("all_signals", []) + discard_entry.get("all_signals", []), cap=30
+                )
+                keep_entry["detection_count"] = keep_entry.get("detection_count", 0) + discard_entry.get("detection_count", 0)
+                if discard_entry.get("first_detected", "") < keep_entry.get("first_detected", ""):
+                    keep_entry["first_detected"] = discard_entry["first_detected"]
+
+                logger.info("Dedup: merged '%s' into '%s' (score=%.2f)", discard_entry.get("name"), keep_entry.get("name"), score)
+                merged_away.add(discard if keep == id_a else id_a)
+                if keep != id_a:
+                    canon_a = store["narratives"][keep].get("canonical_name", "")
+                    break
+
+    for mid in merged_away:
+        del store["narratives"][mid]
 
     _tg_faded = []
     for nid, entry in store["narratives"].items():

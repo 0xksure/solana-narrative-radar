@@ -177,6 +177,11 @@ CRITICAL NAMING RULES:
 - Only create a NEW narrative name if it represents something genuinely different from all existing ones.
 - Do NOT rename, rephrase, or slightly modify existing narrative names — use them verbatim.
 - ESTABLISHED and CORE narratives should almost always be re-confirmed unless the trend has completely died.
+- CONSOLIDATE similar narratives: Do NOT create separate entries for the same concept.
+  Examples of duplicates to avoid: "AI Agents" and "AI Agent Infrastructure" should be ONE narrative.
+  "RWA" and "Real World Asset Tokenization" should be ONE narrative.
+  Pick the most descriptive name and merge all signals under it.
+- If two concepts are 80%+ overlapping, combine them into one narrative with the broader name.
 """
     
     client = Anthropic(api_key=ANTHROPIC_API_KEY)

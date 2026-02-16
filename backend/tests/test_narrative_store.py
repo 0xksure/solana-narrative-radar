@@ -4,6 +4,7 @@ from engine.narrative_store import (
     _canonical, _word_overlap, find_match, merge_narratives,
     get_active_narratives, get_recently_faded, get_active_narrative_hints,
     store_entry_to_api, _dedup_signals, load_store,
+    _expand_aliases, _containment_score,
 )
 from datetime import datetime, timezone, timedelta
 
@@ -184,6 +185,24 @@ class TestStoreEntryToApi:
         assert api["confidence"] == "HIGH"
         assert api["detection_count"] == 3
         assert len(api["supporting_signals"]) == 1
+
+
+class TestAcronymMatching:
+    def test_acronym_matching(self):
+        store = {"narratives": {"abc": {"canonical_name": "real world asset tokenization", "detection_count": 5}}}
+        assert find_match("rwa", store) == "abc"
+
+    def test_containment_matching(self):
+        store = {"narratives": {"abc": {"canonical_name": "ai agents", "detection_count": 5}}}
+        assert find_match("ai agent infrastructure", store) == "abc"
+
+    def test_expand_aliases(self):
+        assert "real world asset" in _expand_aliases("rwa")
+        assert "decentralized finance" in _expand_aliases("defi")
+
+    def test_containment_score(self):
+        assert _containment_score("ai agents", "ai agents infrastructure tools") == 0.85
+        assert _containment_score("liquid staking", "meme coins") == 0.0
 
 
 class TestGetActiveNarrativeHints:

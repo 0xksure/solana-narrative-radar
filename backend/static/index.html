@@ -221,7 +221,8 @@
         .narrative-grid-card.confidence-high { border-left-color: var(--success); }
         .narrative-grid-card.confidence-medium { border-left-color: var(--warning); }
         .narrative-grid-card.confidence-low { border-left-color: var(--info); }
-        .narrative-grid-card.faded-card { opacity: 0.55; border-left-color: var(--text-muted); }
+        .narrative-grid-card.faded-card { opacity: 0.6; border-left-color: var(--text-muted); position: relative; border-color: rgba(255, 100, 100, 0.3) !important; border-left-color: var(--text-muted) !important; }
+        .narrative-grid-card.faded-card::after { content: 'FADED'; position: absolute; top: 8px; right: 8px; font-size: 0.6rem; font-weight: 700; color: #ff6b6b; background: rgba(255, 107, 107, 0.15); padding: 2px 8px; border-radius: 4px; letter-spacing: 0.05em; }
         .narrative-grid-card.faded-card:hover { opacity: 0.8; border-color: var(--text-muted); box-shadow: none; }
         .narrative-grid-card.faded-card .grid-card-name { color: var(--text-secondary); }
         .faded-section-title { font-size: 0.875rem; font-weight: 600; color: var(--text-muted); margin: 28px 0 14px; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
