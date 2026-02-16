@@ -176,9 +176,20 @@
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes pulse-dot { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
         .overview-hero { margin-bottom: 28px; }
-        .overview-hero h1 { font-size: 1.75rem; font-weight: 700; margin-bottom: 4px; }
+        .overview-hero h1 { font-size: 2.2rem; font-weight: 700; margin-bottom: 8px; text-transform: lowercase; }
         .overview-hero p { color: var(--text-secondary); font-size: 0.9rem; }
         .overview-hero p a { color: var(--accent); text-decoration: none; }
+        .overview-hero .subtitle { font-size: 1.05rem; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.6; }
+        .hero-ctas { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+        .btn-primary { background: var(--success); color: #0c0c14; font-weight: 600; font-size: 0.875rem; padding: 10px 24px; border-radius: var(--radius-md); border: none; cursor: pointer; text-decoration: none; transition: all 0.15s; }
+        .btn-primary:hover { background: #00e89a; transform: translateY(-1px); }
+        .btn-outline { background: transparent; color: var(--text-primary); font-weight: 600; font-size: 0.875rem; padding: 10px 24px; border-radius: var(--radius-md); border: 1px solid var(--border); cursor: pointer; text-decoration: none; transition: all 0.15s; }
+        .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+        .audience-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 28px; }
+        .audience-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 20px; transition: border-color 0.2s; }
+        .audience-card:hover { border-color: var(--border-hover); }
+        .audience-card h3 { font-size: 0.9rem; font-weight: 700; margin-bottom: 6px; text-transform: lowercase; color: var(--text-primary); }
+        .audience-card p { font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.5; }
 
         .kpi-grid {
             display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -701,12 +712,29 @@
         <main class="main-content" id="main-content">
             <div class="overview" id="overview-view">
                 <div class="overview-hero">
-                    <h1><img src="/img/logo-sm.jpg" alt="" style="width:36px;height:36px;border-radius:8px;vertical-align:middle;margin-right:8px">Narrative Radar</h1>
-                    <p style="font-size:1.05rem;color:var(--text-secondary);margin-bottom:6px">The narrative intelligence layer for Solana — for agents and humans alike. AI scans 16 data sources every 2 hours: Twitter, Reddit, GitHub, DeFiLlama, DexScreener, Jupiter, Pump.fun, Dune, npm, crates.io, news feeds & more.</p>
-                    <p style="font-size:0.85rem"><a href="https://github.com/0xksure/solana-narrative-radar#readme">How it works →</a> · <a href="#agents" style="color:var(--success);text-decoration:none"><img src="/img/radar.png" class="icon-sm"> Agent API →</a></p>
-                    <div id="countdown-bar" style="margin-top:8px;font-size:0.8rem;color:var(--text-secondary);display:flex;align-items:center;gap:6px">
+                    <h1><img src="/img/logo-sm.jpg" alt="" style="width:36px;height:36px;border-radius:8px;vertical-align:middle;margin-right:8px">solana narratives, decoded</h1>
+                    <p class="subtitle">ai scans 16 sources every 2 hours so you don't miss the next big narrative. built for traders, builders, and agents.</p>
+                    <div class="hero-ctas">
+                        <a href="#narrative-grid" class="btn-primary" onclick="document.getElementById('narrative-grid').scrollIntoView({behavior:'smooth',block:'start'});return false;">explore narratives</a>
+                        <a href="#agents" class="btn-outline" onclick="navigate('agents');return false;">get the api</a>
+                    </div>
+                    <div id="countdown-bar" style="margin-top:12px;font-size:0.8rem;color:var(--text-secondary);display:flex;align-items:center;gap:6px">
                         <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--success);animation:pulse-dot 2s infinite"></span>
                         <span id="countdown-text">loading next update...</span>
+                    </div>
+                </div>
+                <div class="audience-grid">
+                    <div class="audience-card">
+                        <h3>for traders</h3>
+                        <p>catch narratives before they pump. 16 data sources, 2-hour refresh, confidence scoring.</p>
+                    </div>
+                    <div class="audience-card">
+                        <h3>for builders</h3>
+                        <p>find what solana needs next. see emerging trends, unmet demands, and whitespace.</p>
+                    </div>
+                    <div class="audience-card">
+                        <h3>for agents</h3>
+                        <p>plug narrative intelligence into your agent. rest api, real-time data, zero setup.</p>
                     </div>
                 </div>
                 <div class="stats-bar" id="stats-bar">
