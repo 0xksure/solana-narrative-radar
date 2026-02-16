@@ -1095,7 +1095,15 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
             const conf = (n.confidence || 'low').toLowerCase();
             const dir = (n.direction || '').toLowerCase();
             const trend = ((n.velocity && n.velocity.trend) || dir || 'emerging').toLowerCase();
-            const signals = n.supporting_signals || [];
+            const signals = (n.supporting_signals || []).slice().sort((a, b) => {
+                // Signals with URLs first, unknown source last
+                const aUrl = (typeof a === 'object' && a.url) ? 1 : 0;
+                const bUrl = (typeof b === 'object' && b.url) ? 1 : 0;
+                if (bUrl !== aUrl) return bUrl - aUrl;
+                const aSrc = (typeof a === 'object' && a.source && a.source !== 'unknown') ? 1 : 0;
+                const bSrc = (typeof b === 'object' && b.source && b.source !== 'unknown') ? 1 : 0;
+                return bSrc - aSrc;
+            });
             const hasDC = n.velocity && n.velocity.daily_counts && Object.keys(n.velocity.daily_counts).length > 0;
             const sourceCounts = getSourceCounts(signals);
             const hasSC = Object.keys(sourceCounts).length > 0;
@@ -1475,8 +1483,22 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
         let tvlIdx = 0;
         function renderSignal(s, si) {
             if (typeof s === 'string') return `<div class="signal-item"><div class="signal-main">${linkify(s)}</div></div>`;
-            const badge = s.source ? `<span class="source-badge">${SOURCE_ICONS[s.source.toLowerCase()] || '📌'}</span>` : '';
-            const text = s.url ? `<a href="${s.url}" target="_blank">${s.text || shortUrl(s.url)}</a>` : (s.text || '');
+            const src = (s.source || '').toLowerCase();
+            const badge = src ? `<span class="source-badge">${SOURCE_ICONS[src] || '📌'}</span>` : '';
+            let text;
+            if (s.url) {
+                text = `<a href="${s.url}" target="_blank">${s.text || shortUrl(s.url)}</a>`;
+            } else if (s.text) {
+                // No direct URL — generate a search link so user can verify
+                const q = encodeURIComponent(s.text.slice(0, 80) + (src && src !== 'unknown' ? ' ' + s.source : ' solana'));
+                const searchUrl = src === 'github' ? `https://github.com/search?q=${q}&type=repositories`
+                    : src === 'twitter' ? `https://x.com/search?q=${q}`
+                    : src === 'reddit' ? `https://www.reddit.com/search/?q=${q}`
+                    : `https://www.google.com/search?q=${q}`;
+                text = `${esc(s.text)} <a href="${searchUrl}" target="_blank" title="Search for this signal" style="opacity:0.5;font-size:0.7rem">🔍</a>`;
+            } else {
+                text = '';
+            }
             const comment = s.comment ? `<div class="signal-comment">${s.comment}</div>` : '';
             let tvlChart = '';
             if (s.tvl_history && s.tvl_history.length >= 2) {

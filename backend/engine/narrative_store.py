@@ -438,9 +438,14 @@ def _dedup_signals(signals: List, cap: int = 30) -> List[Dict]:
             if text not in seen_texts:
                 seen_texts.add(text)
                 no_url.append(s)
-    merged = list(seen_urls.values()) + no_url
-    merged.sort(key=lambda x: x.get("score", 0), reverse=True)
-    return merged[:cap]
+    # Prioritize signals with URLs over those without
+    with_url = list(seen_urls.values())
+    with_url.sort(key=lambda x: x.get("score", 0), reverse=True)
+    no_url.sort(key=lambda x: x.get("score", 0), reverse=True)
+    # Cap: prefer signals with URLs, fill remainder with no-url
+    if len(with_url) >= cap:
+        return with_url[:cap]
+    return (with_url + no_url)[:cap]
 
 
 def merge_narratives(new_narratives: List[Dict], store: Dict) -> Dict:
