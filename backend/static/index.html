@@ -1279,7 +1279,7 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                 const projectCount = (n.existing_projects || []).length;
                 const fr = getSignalFreshness(n);
                 const trendArrow = getCardTrendArrow(n);
-                return `<div class="narrative-grid-card confidence-${conf}${isFaded ? ' faded-card' : ''}" onclick="navigate('/narrative/${narrativeSlug(n)}')"
+                return `<div class="narrative-grid-card confidence-${conf}${isFaded ? ' faded-card' : ''}" onclick="navigate('/narrative/${narrativeSlug(n)}')">
                     <div class="grid-card-header">
                         <div class="grid-card-name">${esc(n.name)}</div>
                         <div class="grid-card-badges">
