@@ -306,14 +306,17 @@ def _save_store_json(store: Dict):
 def load_store() -> Dict:
     """Load the narrative store."""
     if _use_pg():
-        _ensure_tables()
-        narratives = _load_all_narratives_pg()
-        meta = _load_meta_pg()
-        return {
-            "narratives": narratives,
-            "last_updated": meta.get("last_updated"),
-            "total_pipeline_runs": int(meta.get("total_pipeline_runs", 0)),
-        }
+        try:
+            _ensure_tables()
+            narratives = _load_all_narratives_pg()
+            meta = _load_meta_pg()
+            return {
+                "narratives": narratives,
+                "last_updated": meta.get("last_updated"),
+                "total_pipeline_runs": int(meta.get("total_pipeline_runs", 0)),
+            }
+        except Exception as e:
+            logger.error("Failed to load from PG, falling back to JSON: %s", e)
     return _load_store_json()
 
 
