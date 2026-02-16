@@ -955,6 +955,12 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
         }
 
         // === ROUTING ===
+        function narrativeSlug(n) {
+            const safeName = (n.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+            const shortId = (n.id || '').slice(0, 6);
+            return safeName + '-' + shortId;
+        }
+
         function navigate(hash) {
             _sentryBreadcrumb('navigation', 'navigate', { hash });
             window.location.hash = hash;
@@ -963,15 +969,77 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
         function handleRoute() {
             const hash = window.location.hash.slice(1);
             if (hash === 'agents') { showAgentsView(); return; }
+            if (hash === '/archive' || hash === 'archive') { showArchiveView(); return; }
+
+            // New slug-based route: /narrative/<slug>
+            const slugMatch = hash.match(/^\/narrative\/(.+)$/);
+            if (slugMatch && currentNarratives.length > 0) {
+                const slug = slugMatch[1];
+                const idx = currentNarratives.findIndex(n => narrativeSlug(n) === slug);
+                if (idx >= 0) { showDetail(idx); return; }
+            }
+
+            // Legacy index-based route: narrative-0
             const match = hash.match(/^narrative-(\d+)$/);
             if (match && currentNarratives.length > 0) {
                 const idx = parseInt(match[1]);
                 if (idx >= 0 && idx < currentNarratives.length) {
-                    showDetail(idx);
+                    // Redirect to slug URL
+                    const n = currentNarratives[idx];
+                    navigate('/narrative/' + narrativeSlug(n));
                     return;
                 }
             }
             showOverview();
+        }
+
+        async function showArchiveView() {
+            document.getElementById('detail-panel').style.display = 'none';
+            const grid = document.getElementById('narrative-grid');
+            grid.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-muted)">Loading archive...</div>';
+            try {
+                const resp = await fetch('/api/narratives/all');
+                const data = await resp.json();
+                const allNonActive = [...(data.faded || []), ...(data.historical || [])];
+                if (allNonActive.length === 0) {
+                    grid.innerHTML = '<div style="text-align:center;padding:48px;color:var(--text-muted)"><h2>📁 Archive</h2><p>No archived narratives yet.</p><a href="#" style="color:var(--accent)">← Back to overview</a></div>';
+                    return;
+                }
+                allNonActive.sort((a, b) => (b.last_detected || '').localeCompare(a.last_detected || ''));
+                // Add to currentNarratives temporarily for navigation
+                const archiveNarratives = allNonActive.map(n => ({...n, _archived: true}));
+
+                let html = '<div style="padding:16px 24px"><h2 style="color:var(--text-primary);margin-bottom:8px">📁 Archive <span style="font-size:0.8rem;color:var(--text-muted)">(' + allNonActive.length + ' narratives)</span></h2>';
+                html += '<input type="text" id="archive-search" placeholder="Search archived narratives..." style="width:100%;max-width:400px;padding:8px 12px;background:var(--card-bg);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);margin-bottom:16px" oninput="filterArchiveList()">';
+                html += '<div id="archive-list">';
+                html += renderArchiveList(archiveNarratives);
+                html += '</div></div>';
+                grid.innerHTML = html;
+                window._archiveNarratives = archiveNarratives;
+            } catch(e) {
+                grid.innerHTML = '<div style="text-align:center;padding:48px;color:var(--text-muted)"><p>Failed to load archive.</p><a href="#" style="color:var(--accent)">← Back</a></div>';
+            }
+        }
+
+        function renderArchiveList(narratives) {
+            return narratives.map(n => {
+                const lastSeen = n.last_detected ? new Date(n.last_detected).toLocaleDateString() : 'Unknown';
+                const firstSeen = n.first_detected ? new Date(n.first_detected).toLocaleDateString() : 'Unknown';
+                return '<div style="background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:8px;cursor:pointer;opacity:0.8" class="archive-item" data-name="' + (n.name||'').toLowerCase() + '">' +
+                    '<div style="display:flex;justify-content:space-between;align-items:center">' +
+                    '<div><strong style="color:var(--text-primary)">' + (n.name||'Unknown') + '</strong>' +
+                    '<div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px">First: ' + firstSeen + ' · Last: ' + lastSeen + ' · Detected ' + (n.detection_count||0) + '×</div></div>' +
+                    '<span style="font-size:0.7rem;padding:2px 8px;border-radius:4px;background:rgba(255,255,255,0.05);color:var(--text-muted)">' + (n.status||'FADED') + '</span>' +
+                    '</div></div>';
+            }).join('');
+        }
+
+        function filterArchiveList() {
+            const q = (document.getElementById('archive-search')?.value || '').toLowerCase();
+            const items = document.querySelectorAll('.archive-item');
+            items.forEach(item => {
+                item.style.display = item.dataset.name.includes(q) ? '' : 'none';
+            });
         }
 
         window.addEventListener('hashchange', handleRoute);
@@ -1113,15 +1181,15 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                     <div class="related-narratives">
                         ${relatedNarratives.map(rn => {
                             const ri = currentNarratives.indexOf(rn);
-                            return `<a class="related-tag" onclick="navigate('narrative-${ri}')">${esc(rn.name)} <span class="badge badge-${(rn.confidence||'low').toLowerCase()}" style="font-size:0.55rem;padding:1px 5px;margin-left:4px">${rn.confidence}</span></a>`;
+                            return `<a class="related-tag" onclick="navigate('/narrative/${narrativeSlug(rn)}')">${esc(rn.name)} <span class="badge badge-${(rn.confidence||'low').toLowerCase()}" style="font-size:0.55rem;padding:1px 5px;margin-left:4px">${rn.confidence}</span></a>`;
                         }).join('')}
                     </div>
                 </div>` : ''}
                 <div class="detail-nav">
-                    <button class="detail-nav-btn" ${!prev ? 'disabled' : `onclick="navigate('narrative-${idx-1}')"`}>
+                    <button class="detail-nav-btn" ${!prev ? 'disabled' : `onclick="navigate('/narrative/${prev ? narrativeSlug(prev) : ''}')"`}>
                         ← <span class="detail-nav-name">${prev ? esc(prev.name) : ''}</span>
                     </button>
-                    <button class="detail-nav-btn" ${!next ? 'disabled' : `onclick="navigate('narrative-${idx+1}')"`}>
+                    <button class="detail-nav-btn" ${!next ? 'disabled' : `onclick="navigate('/narrative/${next ? narrativeSlug(next) : ''}')"`}>
                         <span class="detail-nav-name">${next ? esc(next.name) : ''}</span> →
                     </button>
                 </div>
@@ -1156,7 +1224,7 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                 const sourceCount = Object.keys(sc).length;
                 const sourceIcons = Object.keys(sc).map(k => SOURCE_ICONS[k] || '📌').join('');
                 const isFaded = (status === 'faded');
-                return `<div class="sidebar-item" onclick="navigate('narrative-${i}')" ${isFaded ? 'style="opacity:0.5"' : ''}>
+                return `<div class="sidebar-item" onclick="navigate('/narrative/${narrativeSlug(n)}')" ${isFaded ? 'style="opacity:0.5"' : ''}>
                     <div class="sidebar-item-info">
                         <div class="sidebar-item-name" title="${esc(n.name)}">${esc(n.name)}</div>
                         <div class="sidebar-item-meta">
@@ -1211,7 +1279,7 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                 const projectCount = (n.existing_projects || []).length;
                 const fr = getSignalFreshness(n);
                 const trendArrow = getCardTrendArrow(n);
-                return `<div class="narrative-grid-card confidence-${conf}${isFaded ? ' faded-card' : ''}" onclick="navigate('narrative-${i}')">
+                return `<div class="narrative-grid-card confidence-${conf}${isFaded ? ' faded-card' : ''}" onclick="navigate('/narrative/${narrativeSlug(n)}')"
                     <div class="grid-card-header">
                         <div class="grid-card-name">${esc(n.name)}</div>
                         <div class="grid-card-badges">
@@ -1780,7 +1848,6 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                     renderOverviewGrid(data.narratives);
                     requestAnimationFrame(createCardSparklines);
                     handleRoute();
-                    autoSelectFirst();
                     loadHistorical();
                     loadSpamCounts().then(() => { if (walletPubkey) renderOverviewGrid(data.narratives); });
                 } else {
@@ -1803,11 +1870,12 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
         document.addEventListener('keydown', (e) => {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
             const hash = window.location.hash.slice(1);
-            const match = hash.match(/^narrative-(\d+)$/);
-            if (!match) return;
-            const idx = parseInt(match[1]);
-            if (e.key === 'ArrowLeft' || e.key === 'k') { if (idx > 0) navigate('narrative-' + (idx - 1)); e.preventDefault(); }
-            if (e.key === 'ArrowRight' || e.key === 'j') { if (idx < currentNarratives.length - 1) navigate('narrative-' + (idx + 1)); e.preventDefault(); }
+            const slugMatch = hash.match(/^\/narrative\/(.+)$/);
+            if (!slugMatch) return;
+            const idx = currentNarratives.findIndex(n => narrativeSlug(n) === slugMatch[1]);
+            if (idx < 0) return;
+            if (e.key === 'ArrowLeft' || e.key === 'k') { if (idx > 0) navigate('/narrative/' + narrativeSlug(currentNarratives[idx - 1])); e.preventDefault(); }
+            if (e.key === 'ArrowRight' || e.key === 'j') { if (idx < currentNarratives.length - 1) navigate('/narrative/' + narrativeSlug(currentNarratives[idx + 1])); e.preventDefault(); }
             if (e.key === 'Escape') { navigate(''); e.preventDefault(); }
         });
 
@@ -2044,7 +2112,7 @@ curl https://solana-narrative-radar-8vsib.ondigitalocean.app/api/agent/narrative
                 try {
                     const resp = await fetch('/api/narratives/all');
                     const data = await resp.json();
-                    archivedNarratives = (data.faded || []).map(n => ({...n, _archived: true}));
+                    archivedNarratives = [...(data.faded || []), ...(data.historical || [])].map(n => ({...n, _archived: true}));
                     // Sort by faded_at descending (most recently faded first)
                     archivedNarratives.sort((a, b) => {
                         const da = a.faded_at || a.last_detected || '';

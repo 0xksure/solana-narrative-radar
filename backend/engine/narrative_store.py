@@ -224,7 +224,7 @@ def _upsert_narrative(cur, nid: str, entry: Dict):
         entry.get("current_confidence", "MEDIUM"),
         entry.get("current_direction", "EMERGING"),
         entry.get("explanation", ""),
-        entry.get("trend_evidence", ""),
+        json.dumps(entry.get("trend_evidence", "")) if isinstance(entry.get("trend_evidence"), list) else entry.get("trend_evidence", ""),
         entry.get("market_opportunity", ""),
         json.dumps(entry.get("topics", [])),
         json.dumps(entry.get("all_signals", [])),
@@ -356,17 +356,30 @@ def find_match(canonical_name: str, store: Dict, threshold: float = 0.5) -> Opti
     return best_id
 
 
-def _dedup_signals(signals: List[Dict], cap: int = 30) -> List[Dict]:
-    seen_urls = {}
-    no_url = []
+def _dedup_signals(signals: List, cap: int = 30) -> List[Dict]:
+    # Normalise: accept plain strings as well as dicts
+    normalised: List[Dict] = []
     for s in signals:
+        if isinstance(s, str):
+            normalised.append({"text": s, "url": "", "source": "unknown", "comment": ""})
+        elif isinstance(s, dict):
+            normalised.append(s)
+        # skip anything else
+
+    seen_urls: Dict[str, Dict] = {}
+    seen_texts: set = set()
+    no_url: List[Dict] = []
+    for s in normalised:
         url = s.get("url", "")
         if url:
             existing = seen_urls.get(url)
             if existing is None or s.get("score", 0) > existing.get("score", 0):
                 seen_urls[url] = s
         else:
-            no_url.append(s)
+            text = s.get("text", "")
+            if text not in seen_texts:
+                seen_texts.add(text)
+                no_url.append(s)
     merged = list(seen_urls.values()) + no_url
     merged.sort(key=lambda x: x.get("score", 0), reverse=True)
     return merged[:cap]
