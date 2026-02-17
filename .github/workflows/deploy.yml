@@ -1,0 +1,29 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Login to DOCR
+        run: doctl registry login --expiry-seconds 600
+
+      - name: Build & push image
+        run: |
+          docker build \
+            -t registry.digitalocean.com/ai-trainer/narrative-radar:latest \
+            -t registry.digitalocean.com/ai-trainer/narrative-radar:${{ github.sha }} \
+            --provenance=false \
+            backend/
+          docker push registry.digitalocean.com/ai-trainer/narrative-radar:latest
+          docker push registry.digitalocean.com/ai-trainer/narrative-radar:${{ github.sha }}

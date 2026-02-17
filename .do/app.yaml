@@ -2,13 +2,13 @@ name: solana-narrative-radar
 region: fra
 services:
   - name: api
-    github:
-      repo: 0xksure/solana-narrative-radar
-      branch: master
-      deploy_on_push: true
-    source_dir: backend
-    run_command: uvicorn main:app --host 0.0.0.0 --port 8080
-    environment_slug: python
+    image:
+      registry: ai-trainer
+      registry_type: DOCR
+      repository: narrative-radar
+      tag: latest
+      deploy_on_push:
+        enabled: true
     instance_count: 1
     instance_size_slug: apps-s-1vcpu-0.5gb
     http_port: 8080
