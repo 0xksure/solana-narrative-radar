@@ -2,7 +2,7 @@
 # Deploy Solana Narrative Radar to DigitalOcean droplet
 set -e
 
-SERVER="165.22.76.28"
+SERVER="${DEPLOY_SERVER:?Set DEPLOY_SERVER env var}"
 APP_DIR="/opt/solana-narrative-radar"
 
 echo "📦 Deploying to DigitalOcean..."
